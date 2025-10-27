@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Administrator Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f8f9fa;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 220px;
+            background-color: #212529;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+        }
+
+        .sidebar .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #0d6efd;
+        }
+
+        .sidebar .nav-link {
+            color: #adb5bd;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar .nav-link.active,
+        .sidebar .nav-link:hover {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+
+        .sidebar .profile {
+            margin-top: auto;
+            padding: 15px;
+            border-top: 1px solid #343a40;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar .profile img {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+        }
+
+        /* Content */
+        .content {
+            margin-left: 220px;
+            padding: 20px;
+        }
+
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+
+        .card-body {
+            padding: 30px;
+            min-height: 450px;
+        }
+
+        canvas {
+            max-height: 600px !important;
+            max-width: 100% !important;
+        }
+    </style>
+</head>
+
+<body data-bs-spy="scroll" data-bs-target=".sidebar" data-bs-offset="80" tabindex="0">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="bi bi-speedometer2"></i> Admin
+        </div>
+        <a href="#enrol" class="nav-link active"><i class="bi bi-people-fill"></i> Enrolments</a>
+        <a href="#gender" class="nav-link"><i class="bi bi-gender-ambiguous"></i> Gender</a>
+        <a href="#age" class="nav-link"><i class="bi bi-calendar3"></i> Age</a>
+        <a href="#outcome" class="nav-link"><i class="bi bi-bar-chart-fill"></i> Outcomes</a>
+        <a href="index.html" class="nav-link text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+
+        <div class="profile">
+            <!-- <img src="https://via.placeholder.com/35" alt="Admin"> -->
+            <span>Admin</span>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+        <h2 class="mb-4"><i class="bi bi-pc-display me-2"></i> Administrator Dashboard</h2>
+
+        <!-- Enrolments per Course -->
+        <div class="card" id="enrol">
+            <div class="card-header bg-primary text-white">
+                Enrolments per Course
+            </div>
+            <div class="card-body">
+                <canvas id="enrolChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gender Distribution -->
+        <div class="card" id="gender">
+            <div class="card-header bg-success text-white">
+                Gender Distribution
+            </div>
+            <div class="card-body text-center">
+                <canvas id="genderChart"></canvas>
+                <p class="mt-2">
+                    👨 Male: <span id="maleCount">0</span> | 👩 Female: <span id="femaleCount">0</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Age Distribution -->
+        <div class="card" id="age">
+            <div class="card-header bg-warning text-dark">
+                Age Distribution
+            </div>
+            <div class="card-body text-center">
+                <canvas id="ageChart"></canvas>
+                <p class="mt-2" id="ageCounts">
+                    🧑‍🎓 0–25: <span id="youngCount">0</span> |
+                    👨 26–35: <span id="adultCount">0</span> |
+                    👴 36+: <span id="olderCount">0</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Outcomes -->
+        <div class="card" id="outcome">
+            <div class="card-header bg-danger text-white">
+                Outcomes (Final Results)
+            </div>
+            <div class="card-body text-center">
+                <canvas id="outcomeChart"></canvas>
+                <p class="mt-2" id="outcomeCounts">
+                    ✅ Pass: <span id="passCount">0</span> |
+                    ❌ Fail: <span id="failCount">0</span> |
+                    🔄 Withdrawn: <span id="withdrawCount">0</span> |
+                    🏆 Distinction: <span id="distCount">0</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', function () {
+                document.querySelectorAll('.sidebar .nav-link')
+                    .forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+
+</html>
