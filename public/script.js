@@ -74,11 +74,6 @@ async function loadStudentData(studentId = "11391") {
             data.vle = generateVLEFromActivity(data.activity);
         }
 
-        /* Render all sections
-        renderStudentProfile(data.student);
-        renderAcademicProgress(data.scores);
-        renderEngagementChart(data.activity);*/
-
         // New Features - now with fallback data
         // 1️⃣ Performance summary + risk alerts first (Overview)
         if (data.scores) {
@@ -103,6 +98,9 @@ async function loadStudentData(studentId = "11391") {
         // 6️⃣ Student profile at bottom
         renderStudentProfile(data.student);
 
+        // ✅ ✅ ✅ NEW: Initialize interactive features
+        initializeInteractiveFeatures(data);
+
     } catch (error) {
         console.error("Error loading student data:", error);
         document.getElementById("studentProfile").innerHTML =
@@ -117,7 +115,6 @@ async function loadStudentData(studentId = "11391") {
 // TEMPORARY: GENERATE MISSING STUDENT DATA
 // ============================================
 function generateAssessmentsFromScores(scores) {
-    // Generate future assessments based on existing scores
     if (!scores || scores.length === 0) return [];
 
     const assessments = [];
@@ -128,13 +125,12 @@ function generateAssessmentsFromScores(scores) {
         const maxDate = Math.max(...moduleScores.map(s => Number(s.date_submitted)));
         const presentation = moduleScores[0].code_presentation;
 
-        // Add 2-3 future assessments per module
         for (let i = 1; i <= 3; i++) {
             assessments.push({
                 code_module: module,
                 code_presentation: presentation,
                 assessment_type: i === 3 ? 'Exam' : 'TMA',
-                date: maxDate + (i * 15) // 15 days apart
+                date: maxDate + (i * 15)
             });
         }
     });
@@ -143,14 +139,12 @@ function generateAssessmentsFromScores(scores) {
 }
 
 function calculateCurrentDay(scores) {
-    // Calculate current day as max submission date + 5
     if (!scores || scores.length === 0) return 50;
     const maxDate = Math.max(...scores.map(s => Number(s.date_submitted)));
     return maxDate + 5;
 }
 
 function generateVLEFromActivity(activity) {
-    // Generate VLE materials from activity data
     if (!activity || activity.length === 0) return [];
 
     const uniqueSites = [...new Set(activity.map(a => a.id_site))].filter(id => id);
@@ -216,7 +210,6 @@ function renderAcademicProgress(scores) {
         return;
     }
 
-    // Group scores by course + presentation
     const courseGroups = {};
     scores.forEach(s => {
         const key = `${s.code_module}_${s.code_presentation}`;
@@ -228,7 +221,6 @@ function renderAcademicProgress(scores) {
         });
     });
 
-    // Create datasets
     const datasets = Object.entries(courseGroups).map(([key, points]) => {
         const module = key.split("_")[0];
         return {
@@ -410,7 +402,6 @@ function renderModuleProgress(scores, assessments) {
     const container = document.getElementById("progressBars");
     if (!container) return;
 
-    // Group by module
     const moduleData = {};
     scores.forEach(s => {
         const mod = s.code_module;
@@ -420,7 +411,6 @@ function renderModuleProgress(scores, assessments) {
         moduleData[mod].scores.push(Number(s.score));
     });
 
-    // Calculate total assessments per module
     if (assessments) {
         assessments.forEach(a => {
             if (moduleData[a.code_module]) {
@@ -554,7 +544,6 @@ function renderRecentUpdates(data) {
 
     const updates = [];
 
-    // Recent submission
     if (data.scores && data.scores.length > 0) {
         const recent = data.scores.sort((a, b) => b.date_submitted - a.date_submitted)[0];
         updates.push({
@@ -566,7 +555,6 @@ function renderRecentUpdates(data) {
         });
     }
 
-    // Recent activity
     if (data.activity && data.activity.length > 0) {
         const recentActivity = data.activity.sort((a, b) => b.date - a.date)[0];
         updates.push({
@@ -578,7 +566,6 @@ function renderRecentUpdates(data) {
         });
     }
 
-    // Upcoming deadline
     if (data.assessments) {
         const nextDeadline = data.assessments
             .filter(a => a.date > (data.currentDay || 0))
@@ -662,7 +649,7 @@ function renderVLEEngagement(vleData, activityData) {
 }
 
 // ============================================
-// LECTURER DASHBOARD
+// LECTURER DASHBOARD (Keep your existing code)
 // ============================================
 let classChartInstance = null;
 let currentRiskStudents = [];
@@ -893,7 +880,7 @@ async function populateModuleDropdown() {
 }
 
 // ============================================
-// ADMIN DASHBOARD
+// ADMIN DASHBOARD (Keep your existing code)
 // ============================================
 let allStudentsData = [];
 let allSubjectsData = [];
@@ -905,21 +892,18 @@ async function loadAdminData() {
         const res = await fetch("/api/admin");
         const data = await res.json();
 
-        // ✅ TEMPORARY: Generate subjects from enrolments data if not provided
         if (!data.subjects && data.enrolments) {
             allSubjectsData = generateSubjectsFromEnrolments(data.enrolments);
         } else {
             allSubjectsData = data.subjects || [];
         }
 
-        // ✅ TEMPORARY: Generate mock students if not provided
         if (!data.students) {
             allStudentsData = generateMockStudents(data);
         } else {
             allStudentsData = data.students;
         }
 
-        // Render all sections
         renderAdminSummary(data);
         renderEnrolmentChart(data.enrolments);
         renderSubjectsTable(allSubjectsData);
@@ -928,18 +912,13 @@ async function loadAdminData() {
         renderAgeChart(data.age);
         renderOutcomeChart(data.outcomes);
 
-        // Setup search and filters
         setupAdminFilters();
     } catch (error) {
         console.error("Error loading admin data:", error);
     }
 }
 
-// ============================================
-// TEMPORARY: GENERATE DATA FROM EXISTING API
-// ============================================
 function generateSubjectsFromEnrolments(enrolments) {
-    // Convert enrolments object into subjects array
     return Object.entries(enrolments).map(([key, count]) => {
         const [module, presentation] = key.split('_');
         return {
@@ -952,12 +931,10 @@ function generateSubjectsFromEnrolments(enrolments) {
 }
 
 function generateMockStudents(data) {
-    // Generate sample students from outcomes data
     const outcomes = data.outcomes || {};
     const students = [];
     let studentId = 10000;
 
-    // Create students for each outcome type
     const outcomeTypes = [
         { type: 'Pass', count: Math.min(outcomes.Pass || 0, 100) },
         { type: 'Fail', count: Math.min(outcomes.Fail || 0, 50) },
@@ -976,26 +953,20 @@ function generateMockStudents(data) {
         }
     });
 
-    return students.slice(0, 100); // Limit to 100 for demo
+    return students.slice(0, 100);
 }
 
-// ============================================
-// ADMIN SUMMARY CARDS
-// ============================================
 function renderAdminSummary(data) {
-    // Calculate totals
     const totalStudents = allStudentsData.length || Object.values(data.outcomes || {}).reduce((a, b) => a + b, 0);
     const totalCourses = Object.keys(data.enrolments || {}).length;
     const totalEnrolments = Object.values(data.enrolments || {}).reduce((a, b) => a + b, 0);
 
-    // Calculate pass rate
     const outcomes = data.outcomes || {};
     const totalCompleted = (outcomes.Pass || 0) + (outcomes.Fail || 0) + (outcomes.Distinction || 0);
     const passRate = totalCompleted > 0
         ? (((outcomes.Pass || 0) + (outcomes.Distinction || 0)) / totalCompleted * 100).toFixed(1)
         : 0;
 
-    // Update summary cards
     const totalStudentsEl = document.getElementById("totalStudentsCount");
     const totalCoursesEl = document.getElementById("totalCoursesCount");
     const totalEnrolmentsEl = document.getElementById("totalEnrolmentsCount");
@@ -1007,9 +978,6 @@ function renderAdminSummary(data) {
     if (passRateEl) passRateEl.textContent = passRate + "%";
 }
 
-// ============================================
-// SUBJECTS OFFERED TABLE
-// ============================================
 function renderSubjectsTable(subjects) {
     const tbody = document.getElementById("subjectsTableBody");
     if (!tbody) return;
@@ -1045,9 +1013,6 @@ function renderSubjectsTable(subjects) {
     tbody.innerHTML = html;
 }
 
-// ============================================
-// STUDENT REGISTRY TABLE
-// ============================================
 function renderStudentsTable(students, page = 1) {
     const tbody = document.getElementById("studentsTableBody");
     if (!tbody) return;
@@ -1063,7 +1028,6 @@ function renderStudentsTable(students, page = 1) {
         return;
     }
 
-    // Pagination
     const startIndex = (page - 1) * studentsPerPage;
     const endIndex = startIndex + studentsPerPage;
     const paginatedStudents = students.slice(startIndex, endIndex);
@@ -1094,24 +1058,18 @@ function renderStudentsTable(students, page = 1) {
 
     tbody.innerHTML = html;
 
-    // Update pagination info
     const studentsCountEl = document.getElementById("studentsCount");
     const currentPageEl = document.getElementById("currentPage");
     if (studentsCountEl) studentsCountEl.textContent = students.length;
     if (currentPageEl) currentPageEl.textContent = page;
 
-    // Update pagination buttons
     const prevBtn = document.getElementById("prevPage");
     const nextBtn = document.getElementById("nextPage");
     if (prevBtn) prevBtn.disabled = page === 1;
     if (nextBtn) nextBtn.disabled = endIndex >= students.length;
 }
 
-// ============================================
-// SEARCH AND FILTER FUNCTIONALITY
-// ============================================
 function setupAdminFilters() {
-    // Subject search
     const searchSubjects = document.getElementById("searchSubjects");
     if (searchSubjects) {
         searchSubjects.addEventListener('input', debounce((e) => {
@@ -1124,7 +1082,6 @@ function setupAdminFilters() {
         }, 300));
     }
 
-    // Student search
     const searchStudents = document.getElementById("searchStudents");
     if (searchStudents) {
         searchStudents.addEventListener('input', debounce((e) => {
@@ -1137,7 +1094,6 @@ function setupAdminFilters() {
         }, 300));
     }
 
-    // Status filter
     const filterStatus = document.getElementById("filterStatus");
     if (filterStatus) {
         filterStatus.addEventListener('change', (e) => {
@@ -1159,7 +1115,6 @@ function setupAdminFilters() {
         });
     }
 
-    // Pagination
     const prevBtn = document.getElementById("prevPage");
     const nextBtn = document.getElementById("nextPage");
 
@@ -1257,7 +1212,6 @@ function renderGenderChart(gender) {
         }
     });
 
-    // Update counts
     const maleCount = document.getElementById("maleCount");
     const femaleCount = document.getElementById("femaleCount");
     if (maleCount) maleCount.textContent = gender["M"] || 0;
@@ -1299,7 +1253,6 @@ function renderAgeChart(age) {
         }
     });
 
-    // Update counts
     const youngCount = document.getElementById("youngCount");
     const adultCount = document.getElementById("adultCount");
     const olderCount = document.getElementById("olderCount");
@@ -1344,7 +1297,6 @@ function renderOutcomeChart(outcomes) {
         }
     });
 
-    // Update counts
     const passCount = document.getElementById("passCount");
     const failCount = document.getElementById("failCount");
     const withdrawCount = document.getElementById("withdrawCount");
@@ -1358,17 +1310,14 @@ function renderOutcomeChart(outcomes) {
 // ============================================
 // AUTO-INITIALIZATION
 // ============================================
-// Student Dashboard
 if (document.getElementById("progressChart")) {
-    loadStudentData("11391"); // Change to actual logged-in student ID
+    loadStudentData("11391");
 }
 
-// Lecturer Dashboard
 if (document.getElementById("classChart")) {
     populateModuleDropdown();
 }
 
-// Admin Dashboard
 if (document.getElementById("enrolChart")) {
     loadAdminData();
 }
@@ -1376,20 +1325,16 @@ if (document.getElementById("enrolChart")) {
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
-
-// Format date helper
 function formatDate(days) {
     const date = new Date();
     date.setDate(date.getDate() + days);
     return date.toLocaleDateString();
 }
 
-// Calculate percentage helper
 function calculatePercentage(value, total) {
     return total > 0 ? ((value / total) * 100).toFixed(1) : 0;
 }
 
-// Get grade classification
 function getGradeClassification(score) {
     if (score >= 80) return { grade: 'Distinction', class: 'success' };
     if (score >= 60) return { grade: 'Merit', class: 'info' };
@@ -1397,7 +1342,6 @@ function getGradeClassification(score) {
     return { grade: 'Fail', class: 'danger' };
 }
 
-// Debounce function for search/filter
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -1410,7 +1354,6 @@ function debounce(func, wait) {
     };
 }
 
-// Export data to CSV (for future use)
 function exportToCSV(data, filename) {
     const csv = data.map(row => Object.values(row).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1424,7 +1367,6 @@ function exportToCSV(data, filename) {
     document.body.removeChild(a);
 }
 
-// Show toast notification (Bootstrap 5)
 function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) return;
@@ -1446,7 +1388,6 @@ function showToast(message, type = 'info') {
     const toast = new bootstrap.Toast(toastElement);
     toast.show();
 
-    // Remove from DOM after hidden
     toastElement.addEventListener('hidden.bs.toast', () => {
         toastElement.remove();
     });
@@ -1455,10 +1396,7 @@ function showToast(message, type = 'info') {
 // ============================================
 // EVENT LISTENERS
 // ============================================
-
-// Smooth scroll for anchor links
 document.addEventListener('DOMContentLoaded', () => {
-    // Add smooth scrolling to all links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
@@ -1475,7 +1413,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initialize tooltips if Bootstrap is available
     if (typeof bootstrap !== 'undefined') {
         const tooltipTriggerList = [].slice.call(
             document.querySelectorAll('[data-bs-toggle="tooltip"]')
@@ -1486,12 +1423,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Handle window resize for charts
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-        // Trigger chart resize if needed
         if (progressChartInstance) progressChartInstance.resize();
         if (activityChartInstance) activityChartInstance.resize();
         if (classChartInstance) classChartInstance.resize();
@@ -1499,12 +1434,10 @@ window.addEventListener('resize', () => {
     }, 250);
 });
 
-// Print functionality
 function printDashboard() {
     window.print();
 }
 
-// Refresh data functionality
 function refreshDashboard() {
     if (document.getElementById("progressChart")) {
         showToast('Refreshing student data...', 'info');
@@ -1519,34 +1452,24 @@ function refreshDashboard() {
     }
 }
 
-// Dark mode toggle (optional enhancement)
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
     localStorage.setItem('darkMode', isDark);
 }
 
-// Load dark mode preference on page load
 if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
 }
 
-// ============================================
-// GLOBAL ERROR HANDLER
-// ============================================
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    // You can show a user-friendly error message here
 });
 
 window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
-    // You can show a user-friendly error message here
 });
 
-// ============================================
-// PERFORMANCE MONITORING (Optional)
-// ============================================
 if ('performance' in window) {
     window.addEventListener('load', () => {
         const perfData = window.performance.timing;
@@ -1556,13 +1479,421 @@ if ('performance' in window) {
 }
 
 // ============================================
-// SERVICE WORKER REGISTRATION (Optional - for PWA)
+// ✨ ENHANCED INTERACTIVE FEATURES ✨
 // ============================================
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        // Uncomment if you have a service worker
-        // navigator.serviceWorker.register('/sw.js')
-        //     .then(reg => console.log('Service Worker registered'))
-        //     .catch(err => console.log('Service Worker registration failed'));
+
+// Global variables for interactive features
+let timelineData = [];
+let currentTimelineFilter = 'all';
+
+// 🎯 FEATURE 1: INTERACTIVE STUDY TIMELINE
+function generateInteractiveTimeline(data) {
+    timelineData = [];
+
+    if (data.scores && data.scores.length > 0) {
+        data.scores.forEach(score => {
+            timelineData.push({
+                type: 'assessment',
+                date: score.date_submitted,
+                title: `${score.assessment_type} Submitted`,
+                module: score.code_module,
+                score: score.score,
+                icon: 'clipboard-check',
+                details: `Score: ${score.score}% | ${score.score >= 40 ? 'Passed ✅' : 'Failed ❌'}`,
+                color: score.score >= 70 ? '#2ecc71' : score.score >= 40 ? '#f39c12' : '#e74c3c'
+            });
+        });
+    }
+
+    if (data.activity && data.activity.length > 0) {
+        data.activity.forEach(act => {
+            if (act.sum_click > 50) {
+                timelineData.push({
+                    type: 'activity',
+                    date: act.date,
+                    title: 'High Engagement Day',
+                    icon: 'mouse',
+                    details: `${act.sum_click} VLE interactions`,
+                    color: '#3498db'
+                });
+            }
+        });
+    }
+
+    if (data.assessments && data.currentDay) {
+        data.assessments.forEach(assessment => {
+            if (assessment.date > data.currentDay) {
+                const daysLeft = assessment.date - data.currentDay;
+                timelineData.push({
+                    type: 'deadline',
+                    date: assessment.date,
+                    title: `Upcoming ${assessment.assessment_type}`,
+                    module: assessment.code_module,
+                    icon: 'calendar-event',
+                    details: `${daysLeft} days remaining`,
+                    color: daysLeft < 7 ? '#e74c3c' : '#f39c12'
+                });
+            }
+        });
+    }
+
+    if (data.scores && data.scores.length > 0) {
+        data.scores.filter(s => s.score >= 80).forEach(score => {
+            timelineData.push({
+                type: 'achievement',
+                date: score.date_submitted,
+                title: '🎉 Achievement Unlocked!',
+                module: score.code_module,
+                icon: 'trophy',
+                details: `High Score: ${score.score}% in ${score.assessment_type}`,
+                color: '#9b59b6'
+            });
+        });
+    }
+
+    timelineData.sort((a, b) => a.date - b.date);
+
+    renderInteractiveTimeline();
+}
+
+function renderInteractiveTimeline() {
+    let container = document.getElementById('interactiveTimeline');
+
+    if (!container) {
+        const updatesSection = document.querySelector('#updatesFeed').closest('.col-12');
+        const timelineSection = document.createElement('div');
+        timelineSection.className = 'col-12 mt-4';
+        timelineSection.innerHTML = `
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Interactive Study Timeline
+                </div>
+                <div class="card-body">
+                    <div class="mb-3 position-relative">
+                        <input type="text" id="timelineSearch" class="form-control" 
+                               placeholder="🔍 Search timeline events..." 
+                               onkeyup="filterTimelineBySearch()" 
+                               style="padding-left: 40px; border-radius: 25px;">
+                        <i class="bi bi-search position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mb-3 flex-wrap" id="timelineFilters">
+                        <button class="btn btn-sm btn-outline-primary active" onclick="setTimelineFilter('all')">
+                            <i class="bi bi-grid-3x3"></i> All
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="setTimelineFilter('assessment')">
+                            <i class="bi bi-clipboard-check"></i> Assessments
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="setTimelineFilter('activity')">
+                            <i class="bi bi-mouse"></i> Activities
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="setTimelineFilter('deadline')">
+                            <i class="bi bi-calendar-event"></i> Deadlines
+                        </button>
+                        <button class="btn btn-sm btn-outline-purple" onclick="setTimelineFilter('achievement')">
+                            <i class="bi bi-trophy"></i> Achievements
+                        </button>
+                    </div>
+                    
+                    <div id="interactiveTimeline" style="max-height: 600px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        `;
+
+        if (updatesSection && updatesSection.nextElementSibling) {
+            updatesSection.parentNode.insertBefore(timelineSection, updatesSection.nextElementSibling);
+        } else if (updatesSection) {
+            updatesSection.parentNode.appendChild(timelineSection);
+        }
+
+        container = document.getElementById('interactiveTimeline');
+    }
+
+    const filtered = currentTimelineFilter === 'all'
+        ? timelineData
+        : timelineData.filter(item => item.type === currentTimelineFilter);
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>
+                No timeline events found
+            </div>
+        `;
+        return;
+    }
+
+    const html = `
+        <div class="timeline-wrapper position-relative" style="padding: 20px 0;">
+            <div class="timeline-line position-absolute" 
+                 style="left: 40px; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, #667eea, #764ba2);"></div>
+            
+            ${filtered.map((item, index) => `
+                <div class="timeline-item position-relative mb-4 ps-5" 
+                     data-type="${item.type}" 
+                     style="padding-left: 80px; cursor: pointer; transition: all 0.3s ease;"
+                     onclick="toggleTimelineDetails(${index})"
+                     onmouseenter="this.style.backgroundColor='rgba(102, 126, 234, 0.05)'; this.style.paddingLeft='90px'; this.style.borderRadius='10px'"
+                     onmouseleave="this.style.backgroundColor='transparent'; this.style.paddingLeft='80px'">
+                    
+                    <div class="position-absolute text-muted fw-bold" 
+                         style="left: 0; top: 20px; font-size: 11px;">
+                        Day ${item.date}
+                    </div>
+                    
+                    <div class="timeline-dot position-absolute rounded-circle bg-white" 
+                         style="left: 32px; top: 20px; width: 18px; height: 18px; 
+                                border: 4px solid ${item.color}; z-index: 2;
+                                transition: all 0.3s ease;">
+                    </div>
+                    
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <i class="bi bi-${item.icon} me-2" style="color: ${item.color}"></i>
+                                        ${item.title}
+                                    </h6>
+                                    ${item.module ? `<span class="badge" style="background-color: ${getColorForModule(item.module)}">${item.module}</span>` : ''}
+                                </div>
+                                <i class="bi bi-chevron-down text-muted timeline-chevron-${index}" style="transition: transform 0.3s ease;"></i>
+                            </div>
+                            
+                            <div class="timeline-details-${index} mt-2" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+                                <hr class="my-2">
+                                <p class="mb-0 text-muted small">${item.details}</p>
+                                ${item.score ? `
+                                    <div class="progress mt-2" style="height: 20px;">
+                                        <div class="progress-bar" 
+                                             style="width: ${item.score}%; background-color: ${item.color}">
+                                            ${item.score}%
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function toggleTimelineDetails(index) {
+    const details = document.querySelector(`.timeline-details-${index}`);
+    const chevron = document.querySelector(`.timeline-chevron-${index}`);
+
+    if (details.style.maxHeight === '0px' || !details.style.maxHeight) {
+        details.style.maxHeight = '200px';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    } else {
+        details.style.maxHeight = '0';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+function setTimelineFilter(filter) {
+    currentTimelineFilter = filter;
+
+    document.querySelectorAll('#timelineFilters button').forEach(btn => {
+        btn.classList.remove('active');
     });
+    event.target.closest('button').classList.add('active');
+
+    renderInteractiveTimeline();
+}
+
+function filterTimelineBySearch() {
+    const searchTerm = document.getElementById('timelineSearch').value.toLowerCase();
+    const items = document.querySelectorAll('.timeline-item');
+
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+    });
+}
+
+// 🎯 FEATURE 2: INTERACTIVE CHART CONTROLS
+function addInteractiveChartControls() {
+    const progressCard = document.querySelector('#progressChart')?.closest('.card');
+    if (progressCard) {
+        const header = progressCard.querySelector('.card-header');
+        if (header && !header.querySelector('.chart-controls')) {
+            const controls = document.createElement('div');
+            controls.className = 'chart-controls d-inline-flex gap-2 ms-auto';
+            controls.innerHTML = `
+                <button class="btn btn-sm btn-light active" onclick="changeProgressChartType('line')" data-chart="line">
+                    <i class="bi bi-graph-up"></i>
+                </button>
+                <button class="btn btn-sm btn-light" onclick="changeProgressChartType('bar')" data-chart="bar">
+                    <i class="bi bi-bar-chart"></i>
+                </button>
+                <button class="btn btn-sm btn-light" onclick="changeProgressChartType('scatter')" data-chart="scatter">
+                    <i class="bi bi-diagram-3"></i>
+                </button>
+            `;
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.appendChild(controls);
+        }
+    }
+
+    const activityCard = document.querySelector('#activityChart')?.closest('.card');
+    if (activityCard) {
+        const header = activityCard.querySelector('.card-header');
+        if (header && !header.querySelector('.chart-controls')) {
+            const controls = document.createElement('div');
+            controls.className = 'chart-controls d-inline-flex gap-2 ms-auto';
+            controls.innerHTML = `
+                <button class="btn btn-sm btn-light active" onclick="changeActivityChartType('bar')" data-chart="bar">
+                    <i class="bi bi-bar-chart-fill"></i>
+                </button>
+                <button class="btn btn-sm btn-light" onclick="changeActivityChartType('line')" data-chart="line">
+                    <i class="bi bi-graph-up"></i>
+                </button>
+            `;
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.appendChild(controls);
+        }
+    }
+}
+
+function changeProgressChartType(type) {
+    if (!progressChartInstance) return;
+
+    document.querySelectorAll('[onclick^="changeProgressChartType"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.closest('button').classList.add('active');
+
+    progressChartInstance.config.type = type;
+
+    if (type === 'scatter') {
+        progressChartInstance.options.plugins.legend.display = true;
+    }
+
+    progressChartInstance.update('active');
+}
+
+function changeActivityChartType(type) {
+    if (!activityChartInstance) return;
+
+    document.querySelectorAll('[onclick^="changeActivityChartType"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.closest('button').classList.add('active');
+
+    activityChartInstance.config.type = type;
+    activityChartInstance.update('active');
+}
+
+// 🎯 FEATURE 3: INTERACTIVE PERFORMANCE CARDS
+function makePerformanceCardsInteractive() {
+    const cards = document.querySelectorAll('#performanceSummary .card');
+
+    cards.forEach((card, index) => {
+        card.style.cursor = 'pointer';
+        card.style.transition = 'all 0.3s ease';
+
+        card.addEventListener('mouseenter', function () {
+            this.style.transform = 'scale(1.05) translateY(-5px)';
+            this.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+        });
+
+        card.addEventListener('mouseleave', function () {
+            this.style.transform = 'scale(1) translateY(0)';
+            this.style.boxShadow = '';
+        });
+
+        card.addEventListener('click', function () {
+            const cardTitle = this.querySelector('small').textContent;
+            const cardValue = this.querySelector('h3').textContent;
+
+            showToast(`${cardTitle}: ${cardValue}`, 'info');
+        });
+    });
+}
+
+// 🎯 FEATURE 4: INTERACTIVE MODULE PROGRESS
+function makeModuleProgressInteractive() {
+    const container = document.getElementById('progressBars');
+    if (!container) return;
+
+    const progressBars = container.querySelectorAll('.progress');
+
+    progressBars.forEach((bar, index) => {
+        bar.style.cursor = 'pointer';
+        bar.style.transition = 'all 0.3s ease';
+
+        bar.addEventListener('mouseenter', function () {
+            this.style.height = '35px';
+            this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        });
+
+        bar.addEventListener('mouseleave', function () {
+            this.style.height = '28px';
+            this.style.boxShadow = '';
+        });
+
+        bar.addEventListener('click', function () {
+            const moduleDiv = this.closest('.mb-3');
+            const moduleName = moduleDiv.querySelector('strong').textContent;
+            const moduleInfo = moduleDiv.querySelector('.text-muted').textContent;
+            const avgScore = this.querySelector('.progress-bar strong').textContent;
+
+            showToast(`${moduleName}: ${avgScore} | ${moduleInfo}`, 'primary');
+        });
+    });
+}
+
+// 🎯 FEATURE 5: ANIMATED PROGRESS BARS
+function animateProgressBars() {
+    const progressBars = document.querySelectorAll('.progress-bar');
+
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0';
+
+        setTimeout(() => {
+            bar.style.transition = 'width 1s ease';
+            bar.style.width = width;
+        }, 100);
+    });
+}
+
+// 🎯 FEATURE 6: CLICK-TO-EXPAND SECTIONS
+function addExpandableFeatures() {
+    const updatesContainer = document.getElementById('updatesFeed');
+    if (updatesContainer) {
+        const alerts = updatesContainer.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            alert.style.cursor = 'pointer';
+            alert.addEventListener('click', function () {
+                this.classList.toggle('expanded');
+                const height = this.classList.contains('expanded') ? 'auto' : '';
+                this.style.maxHeight = height;
+            });
+        });
+    }
+}
+
+// ============================================
+// ENHANCED INITIALIZATION
+// ============================================
+function initializeInteractiveFeatures(data) {
+    setTimeout(() => {
+        generateInteractiveTimeline(data);
+        addInteractiveChartControls();
+        makePerformanceCardsInteractive();
+        makeModuleProgressInteractive();
+        animateProgressBars();
+        addExpandableFeatures();
+
+        console.log('✅ Interactive features initialized!');
+    }, 500);
 }

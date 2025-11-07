@@ -330,6 +330,68 @@
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        /* ============================================
+   INTERACTIVE FEATURES CSS
+   ============================================ */
+
+        /* Interactive Timeline Styles */
+        .timeline-item:hover .timeline-dot {
+            width: 22px !important;
+            height: 22px !important;
+            left: 31px !important;
+            top: 19px !important;
+        }
+
+        /* Chart Control Buttons */
+        .chart-controls .btn {
+            padding: 4px 8px;
+            border-radius: 5px;
+        }
+
+        .chart-controls .btn.active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        /* Smooth transitions */
+        .card,
+        .progress,
+        .timeline-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Purple outline button */
+        .btn-outline-purple {
+            color: #9b59b6;
+            border-color: #9b59b6;
+        }
+
+        .btn-outline-purple:hover,
+        .btn-outline-purple.active {
+            background-color: #9b59b6;
+            color: white;
+            border-color: #9b59b6;
+        }
+
+        /* Timeline scrollbar */
+        #interactiveTimeline::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #interactiveTimeline::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #interactiveTimeline::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        #interactiveTimeline::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
     </style>
 </head>
 
