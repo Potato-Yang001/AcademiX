@@ -43,7 +43,7 @@ function getColorForModule(module) {
 }
 
 // ============================================
-// STUDENT DASHBOARD
+// STUDENT DASHBOARD - COMPLETE SCRIPT
 // ============================================
 let progressChartInstance = null;
 let activityChartInstance = null;
@@ -63,7 +63,7 @@ async function loadStudentData(studentId = "11391") {
             return;
         }
 
-        // ✅ TEMPORARY: Generate missing data from existing data
+        // Generate missing data from existing data
         if (!data.assessments && data.scores) {
             data.assessments = generateAssessmentsFromScores(data.scores);
         }
@@ -74,32 +74,43 @@ async function loadStudentData(studentId = "11391") {
             data.vle = generateVLEFromActivity(data.activity);
         }
 
-        // New Features - now with fallback data
-        // 1️⃣ Performance summary + risk alerts first (Overview)
+        // ✅ NEW PRIORITY ORDER (Shaffer-aligned)
+        // 1. URGENT ACTIONS FIRST
+        renderUrgentActionsPanel(data);
+
+        // 2. ACTIONABLE RECOMMENDATIONS
+        renderActionableRecommendations(data);
+
+        // 3. AT-RISK WARNING & PERFORMANCE SUMMARY
         if (data.scores) {
-            renderPerformanceSummary(data.scores);
             checkAtRiskStatus(data.scores);
+            renderPerformanceSummary(data.scores);
         }
 
-        // 2️⃣ Academic progress + module completion
-        renderAcademicProgress(data.scores);
-        renderModuleProgress(data.scores, data.assessments);
+        // 4. GOAL TRACKER (NEW)
+        renderGoalTracker(data);
 
-        // 3️⃣ Upcoming deadlines (reminders)
+        // 5. WHAT-IF CALCULATOR (NEW)
+        renderWhatIfCalculator(data);
+
+        // 6. REST OF DASHBOARD (existing features)
         renderUpcomingDeadlines(data.assessments || [], data.currentDay || 0);
-
-        // 4️⃣ Recent updates and notifications
+        renderModuleProgress(data.scores, data.assessments);
+        renderAcademicProgress(data.scores);
         renderRecentUpdates(data);
-
-        // 5️⃣ Engagement charts and stats
         renderEngagementChart(data.activity);
         renderVLEEngagement(data.vle || [], data.activity || []);
+        renderConsistencyTracker(data.activity);
 
-        // 6️⃣ Student profile at bottom
+        // 7. PROFILE LAST
         renderStudentProfile(data.student);
 
-        // ✅ ✅ ✅ NEW: Initialize interactive features
-        initializeInteractiveFeatures(data);
+        // 8. Initialize interactive features
+        setTimeout(() => {
+            initializeInteractiveFeatures(data);
+            makeModuleProgressInteractive();
+            makePerformanceCardsInteractive();
+        }, 500);
 
     } catch (error) {
         console.error("Error loading student data:", error);
@@ -112,7 +123,7 @@ async function loadStudentData(studentId = "11391") {
 }
 
 // ============================================
-// TEMPORARY: GENERATE MISSING STUDENT DATA
+// GENERATE MISSING STUDENT DATA
 // ============================================
 function generateAssessmentsFromScores(scores) {
     if (!scores || scores.length === 0) return [];
@@ -125,12 +136,14 @@ function generateAssessmentsFromScores(scores) {
         const maxDate = Math.max(...moduleScores.map(s => Number(s.date_submitted)));
         const presentation = moduleScores[0].code_presentation;
 
+        // Add 2-3 future assessments per module
         for (let i = 1; i <= 3; i++) {
             assessments.push({
                 code_module: module,
                 code_presentation: presentation,
                 assessment_type: i === 3 ? 'Exam' : 'TMA',
-                date: maxDate + (i * 15)
+                date: maxDate + (i * 15),
+                is_future: true
             });
         }
     });
@@ -217,7 +230,7 @@ function renderAcademicProgress(scores) {
         courseGroups[key].push({
             x: Number(s.date_submitted),
             y: Number(s.score),
-            assessment: s.assessment_type || 'Assessment'
+            assessment: 'Assessment'
         });
     });
 
@@ -351,7 +364,7 @@ function renderEngagementChart(activity) {
 }
 
 // ============================================
-// NEW FEATURE: UPCOMING DEADLINES
+// UPCOMING DEADLINES
 // ============================================
 function renderUpcomingDeadlines(assessments, currentDay = 0) {
     const container = document.getElementById("deadlinesList");
@@ -396,7 +409,7 @@ function renderUpcomingDeadlines(assessments, currentDay = 0) {
 }
 
 // ============================================
-// NEW FEATURE: MODULE PROGRESS TRACKING
+// MODULE PROGRESS TRACKING
 // ============================================
 function renderModuleProgress(scores, assessments) {
     const container = document.getElementById("progressBars");
@@ -406,11 +419,13 @@ function renderModuleProgress(scores, assessments) {
     scores.forEach(s => {
         const mod = s.code_module;
         if (!moduleData[mod]) {
-            moduleData[mod] = { scores: [], total: 0 };
+            moduleData[mod] = { scores: [], completed: 0, total: 0 };
         }
         moduleData[mod].scores.push(Number(s.score));
+        moduleData[mod].completed++;
     });
 
+    // Count total assessments (including future ones)
     if (assessments) {
         assessments.forEach(a => {
             if (moduleData[a.code_module]) {
@@ -421,7 +436,8 @@ function renderModuleProgress(scores, assessments) {
 
     const html = Object.entries(moduleData).map(([mod, data]) => {
         const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
-        const completion = data.total > 0 ? (data.scores.length / data.total) * 100 : 0;
+        const totalAssessments = data.completed + data.total;
+        const completion = totalAssessments > 0 ? (data.completed / totalAssessments) * 100 : 0;
         const color = getColorForModule(mod);
 
         return `
@@ -432,7 +448,7 @@ function renderModuleProgress(scores, assessments) {
                         <strong>${mod}</strong>
                     </span>
                     <span class="text-muted">
-                        ${data.scores.length}/${data.total || '?'} completed
+                        ${data.completed}/${totalAssessments} completed
                     </span>
                 </div>
                 <div class="progress" style="height: 28px;">
@@ -449,7 +465,7 @@ function renderModuleProgress(scores, assessments) {
 }
 
 // ============================================
-// NEW FEATURE: AT-RISK WARNING
+// AT-RISK WARNING
 // ============================================
 function checkAtRiskStatus(scores) {
     const failing = scores.filter(s => Number(s.score) < 40);
@@ -482,7 +498,7 @@ function checkAtRiskStatus(scores) {
 }
 
 // ============================================
-// NEW FEATURE: PERFORMANCE SUMMARY CARDS
+// PERFORMANCE SUMMARY CARDS
 // ============================================
 function renderPerformanceSummary(scores) {
     const container = document.getElementById("performanceSummary");
@@ -536,7 +552,7 @@ function renderPerformanceSummary(scores) {
 }
 
 // ============================================
-// NEW FEATURE: RECENT UPDATES FEED
+// RECENT UPDATES FEED
 // ============================================
 function renderRecentUpdates(data) {
     const container = document.getElementById("updatesFeed");
@@ -548,9 +564,9 @@ function renderRecentUpdates(data) {
         const recent = data.scores.sort((a, b) => b.date_submitted - a.date_submitted)[0];
         updates.push({
             icon: 'check-circle',
-            text: `Submitted ${recent.assessment_type} in ${recent.code_module}`,
+            text: `Submitted assessment in ${recent.code_module}`,
             subtext: `Score: ${recent.score}%`,
-            time: `Day ${recent.date_submitted}`,
+            time: `${recent.date_submitted} days ago`,
             type: recent.score >= 40 ? 'success' : 'danger'
         });
     }
@@ -598,7 +614,7 @@ function renderRecentUpdates(data) {
 }
 
 // ============================================
-// NEW FEATURE: VLE ENGAGEMENT ANALYSIS
+// VLE ENGAGEMENT ANALYSIS
 // ============================================
 function renderVLEEngagement(vleData, activityData) {
     const container = document.getElementById("vleEngagement");
@@ -647,6 +663,501 @@ function renderVLEEngagement(vleData, activityData) {
         </div>
     `;
 }
+
+// ============================================
+// INTERACTIVE STUDY TIMELINE
+// ============================================
+function initializeInteractiveFeatures(data) {
+    const timelineContainer = document.getElementById("studyTimeline");
+
+    if (!data.scores || data.scores.length === 0) {
+        if (timelineContainer) {
+            timelineContainer.innerHTML = '<p class="text-muted text-center">No timeline data available</p>';
+        }
+        return;
+    }
+
+    // Create timeline events from scores
+    const events = data.scores
+        .sort((a, b) => a.date_submitted - b.date_submitted)
+        .map(score => ({
+            date: score.date_submitted,
+            module: score.code_module,
+            score: score.score,
+            passed: score.score >= 40
+        }));
+
+    if (timelineContainer) {
+        const html = events.map(event => {
+            const statusIcon = event.passed ? '✅' : '❌';
+            const statusClass = event.passed ? 'success' : 'danger';
+
+            return `
+                <div class="timeline-item mb-3 p-3 border-start border-3 border-${statusClass}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>Assessment Submitted</strong>
+                            <div class="text-muted">${event.module}</div>
+                            <div class="mt-1">
+                                <span class="badge bg-${statusClass}">
+                                    Score: ${event.score}% | ${event.passed ? 'Passed' : 'Failed'} ${statusIcon}
+                                </span>
+                            </div>
+                        </div>
+                        <small class="text-muted">Day ${event.date}</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        timelineContainer.innerHTML = html;
+    }
+}
+
+function renderConsistencyTracker(activity) {
+    const container = document.getElementById('consistencyTracker');
+    if (!container || !activity || activity.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No activity data available</p>';
+        return;
+    }
+
+    // Calculate streak (consecutive days with activity)
+    const sortedActivity = [...activity].sort((a, b) => Number(b.date) - Number(a.date));
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let tempStreak = 1;
+
+    for (let i = 0; i < sortedActivity.length - 1; i++) {
+        const diff = Number(sortedActivity[i].date) - Number(sortedActivity[i + 1].date);
+        if (diff === 1) {
+            tempStreak++;
+        } else {
+            if (i === 0) currentStreak = tempStreak;
+            maxStreak = Math.max(maxStreak, tempStreak);
+            tempStreak = 1;
+        }
+    }
+    maxStreak = Math.max(maxStreak, tempStreak);
+    if (currentStreak === 0) currentStreak = tempStreak;
+
+    // Calculate total active days
+    const activeDays = activity.length;
+    const totalDays = Math.max(...activity.map(a => Number(a.date)));
+    const consistency = (activeDays / totalDays * 100);
+
+    let streakIcon, streakColor, message;
+    if (currentStreak >= 7) {
+        streakIcon = '🔥🔥🔥';
+        streakColor = 'success';
+        message = 'Amazing! You\'re on fire! Keep this momentum going!';
+    } else if (currentStreak >= 3) {
+        streakIcon = '🔥';
+        streakColor = 'info';
+        message = 'Good consistency! Try to maintain your streak!';
+    } else {
+        streakIcon = '💤';
+        streakColor = 'warning';
+        message = 'Let\'s build a longer study streak!';
+    }
+
+    const html = `
+        <div class="text-center mb-4">
+            <div class="display-1">${streakIcon}</div>
+            <h3 class="mt-3 text-${streakColor}">${currentStreak} Day Streak!</h3>
+        </div>
+        
+        <div class="row text-center mb-4">
+            <div class="col-4">
+                <div class="p-3 bg-light rounded">
+                    <div class="display-6 text-primary">${maxStreak}</div>
+                    <small class="text-muted">Best Streak</small>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-3 bg-light rounded">
+                    <div class="display-6 text-success">${activeDays}</div>
+                    <small class="text-muted">Active Days</small>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-3 bg-light rounded">
+                    <div class="display-6 text-info">${consistency.toFixed(0)}%</div>
+                    <small class="text-muted">Consistency</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="progress mb-3" style="height: 25px;">
+            <div class="progress-bar bg-${streakColor}" style="width: ${consistency}%" role="progressbar">
+                ${consistency.toFixed(0)}% of days active
+            </div>
+        </div>
+        
+        <div class="alert alert-${streakColor} mb-0">
+            <i class="bi bi-lightbulb me-2"></i>
+            ${message}
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// 🚨 1. URGENT ACTIONS PANEL
+function renderUrgentActionsPanel(data) {
+    const container = document.getElementById("urgentActions");
+    if (!container) return;
+
+    const urgentItems = [];
+    const currentDay = data.currentDay || 0;
+
+    // Check for urgent deadlines (< 7 days)
+    if (data.assessments) {
+        const urgent = data.assessments
+            .filter(a => a.date > currentDay && (a.date - currentDay) < 7)
+            .sort((a, b) => a.date - b.date);
+
+        urgent.forEach(a => {
+            const daysLeft = a.date - currentDay;
+            urgentItems.push({
+                priority: daysLeft < 3 ? 'CRITICAL' : 'HIGH',
+                color: daysLeft < 3 ? 'danger' : 'warning',
+                icon: 'clock-fill',
+                title: `${a.assessment_type} Due in ${daysLeft} Days`,
+                description: `${a.code_module} - ${a.code_presentation}`,
+                action: 'Submit Now',
+                actionLink: '#submissions'
+            });
+        });
+    }
+
+    // Check for failing modules
+    if (data.scores) {
+        const failingModules = {};
+        data.scores.forEach(s => {
+            if (s.score < 40) {
+                if (!failingModules[s.code_module]) {
+                    failingModules[s.code_module] = [];
+                }
+                failingModules[s.code_module].push(s.score);
+            }
+        });
+
+        Object.entries(failingModules).forEach(([module, scores]) => {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            urgentItems.push({
+                priority: 'HIGH',
+                color: 'danger',
+                icon: 'exclamation-triangle-fill',
+                title: `${module}: Below Passing Grade`,
+                description: `Current average: ${avg.toFixed(1)}% (Need 40%)`,
+                action: 'Get Help',
+                actionLink: '#help'
+            });
+        });
+    }
+
+    if (urgentItems.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <strong>All Clear!</strong> No urgent actions required right now.
+            </div>
+        `;
+        return;
+    }
+
+    const html = `
+        <div class="card border-0 shadow-lg" style="border-left: 5px solid #dc3545;">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    🚨 Urgent Actions Required
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                ${urgentItems.map((item, index) => `
+                    <div class="p-3 border-bottom ${index === 0 ? 'bg-light' : ''}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <span class="badge bg-${item.color} mb-2">${item.priority}</span>
+                                <h6 class="mb-1">
+                                    <i class="bi bi-${item.icon} text-${item.color} me-2"></i>
+                                    ${item.title}
+                                </h6>
+                                <p class="text-muted mb-2 small">${item.description}</p>
+                                <button class="btn btn-sm btn-${item.color}">
+                                    <i class="bi bi-arrow-right-circle me-1"></i>
+                                    ${item.action}
+                                </button>
+                            </div>
+                            <div class="text-center" style="min-width: 50px;">
+                                <div class="badge bg-${item.color} rounded-circle" 
+                                     style="width: 40px; height: 40px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">
+                                    ${index + 1}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// 💡 2. ACTIONABLE RECOMMENDATIONS
+function renderActionableRecommendations(data) {
+    const container = document.getElementById("recommendations");
+    if (!container) return;
+
+    const recommendations = [];
+
+    // Analyze scores to find weak modules
+    if (data.scores) {
+        const modulePerformance = {};
+        data.scores.forEach(s => {
+            if (!modulePerformance[s.code_module]) {
+                modulePerformance[s.code_module] = [];
+            }
+            modulePerformance[s.code_module].push(Number(s.score));
+        });
+
+        Object.entries(modulePerformance).forEach(([module, scores]) => {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            if (avg < 60) {
+                recommendations.push({
+                    icon: 'book',
+                    color: avg < 40 ? 'danger' : 'warning',
+                    title: `Focus on ${module}`,
+                    reason: `Current average: ${avg.toFixed(1)}%`,
+                    action: 'Review lecture notes and practice problems',
+                    priority: avg < 40 ? 1 : 2
+                });
+            }
+        });
+    }
+
+    // Sort by priority
+    recommendations.sort((a, b) => a.priority - b.priority);
+
+    if (recommendations.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-lightbulb me-2"></i>
+                <strong>Looking Good!</strong> No specific recommendations at this time.
+            </div>
+        `;
+        return;
+    }
+
+    const html = `
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb-fill me-2"></i>
+                    💡 Recommended Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    ${recommendations.map((rec, index) => `
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <div class="rounded-circle bg-${rec.color} text-white" 
+                                         style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-${rec.icon}"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${index + 1}. ${rec.title}</h6>
+                                    <p class="text-muted mb-1 small">${rec.reason}</p>
+                                    <p class="mb-0">
+                                        <i class="bi bi-arrow-right-circle text-${rec.color} me-1"></i>
+                                        <strong>${rec.action}</strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// 🎯 3. GOAL TRACKER
+function renderGoalTracker(data) {
+    const container = document.getElementById("goalTrackerContent");
+    if (!container) return;
+
+    const currentAvg = data.scores
+        ? (data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length)
+        : 0;
+
+    const goals = [
+        { name: 'Pass All Modules', target: 40, current: currentAvg, icon: 'check-circle' },
+        { name: 'Achieve Merit', target: 60, current: currentAvg, icon: 'star' },
+        { name: 'Achieve Distinction', target: 80, current: currentAvg, icon: 'trophy' }
+    ];
+
+    const html = goals.map(goal => {
+        const progress = Math.min((goal.current / goal.target) * 100, 100);
+        const achieved = goal.current >= goal.target;
+        const color = achieved ? 'success' : progress > 75 ? 'info' : progress > 50 ? 'warning' : 'danger';
+
+        return `
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <i class="bi bi-${goal.icon} text-${color} me-2"></i>
+                        <strong>${goal.name}</strong>
+                        ${achieved ? '<span class="badge bg-success ms-2">✓ Achieved!</span>' : ''}
+                    </div>
+                    <span class="badge bg-${color}">${goal.current.toFixed(1)}% / ${goal.target}%</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-${color}" 
+                         style="width: ${progress}%" 
+                         role="progressbar">
+                        ${progress.toFixed(0)}%
+                    </div>
+                </div>
+                ${!achieved ? `
+                    <small class="text-muted">
+                        Need ${(goal.target - goal.current).toFixed(1)}% more to reach goal
+                    </small>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+// 🧮 4. WHAT-IF CALCULATOR
+function renderWhatIfCalculator(data) {
+    const container = document.getElementById("whatIfCalculatorContent");
+    if (!container) return;
+
+    const modules = data.assessments
+        ? [...new Set(data.assessments.map(a => a.code_module))]
+        : [];
+
+    const html = `
+        <p class="text-muted mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            Use this calculator to see how future scores will affect your final grade
+        </p>
+        
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label"><strong>Select Module:</strong></label>
+                <select class="form-select" id="calcModule" onchange="updateWhatIfPrediction()">
+                    <option value="">-- Choose a module --</option>
+                    ${modules.map(m => `<option value="${m}">${m}</option>`).join('')}
+                </select>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label"><strong>Predicted Next Score (%):</strong></label>
+                <input type="range" class="form-range" min="0" max="100" value="70" 
+                       id="calcScore" oninput="updateWhatIfPrediction()">
+                <div class="text-center">
+                    <span class="badge bg-primary" style="font-size: 1.2rem;" id="calcScoreDisplay">70%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="calcResult" class="mt-4"></div>
+    `;
+
+    container.innerHTML = html;
+    window.studentData = data; // Store for calculator
+}
+
+// Helper function for calculator
+function updateWhatIfPrediction() {
+    const module = document.getElementById('calcModule')?.value;
+    const score = document.getElementById('calcScore')?.value;
+    const scoreDisplay = document.getElementById('calcScoreDisplay');
+    const resultDiv = document.getElementById('calcResult');
+
+    if (scoreDisplay) scoreDisplay.textContent = score + '%';
+    if (!module || !resultDiv) return;
+
+    const data = window.studentData;
+    if (!data) return;
+
+    const moduleScores = data.scores.filter(s => s.code_module === module);
+    if (moduleScores.length === 0) return;
+
+    const currentAvg = moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length;
+    const predictedAvg = (currentAvg + Number(score)) / 2;
+
+    const passStatus = predictedAvg >= 80 ? 'Distinction' :
+        predictedAvg >= 60 ? 'Merit' :
+            predictedAvg >= 40 ? 'Pass' : 'Fail';
+
+    const color = predictedAvg >= 80 ? 'primary' :
+        predictedAvg >= 60 ? 'info' :
+            predictedAvg >= 40 ? 'success' : 'danger';
+
+    resultDiv.innerHTML = `
+        <div class="alert alert-${color}">
+            <h5 class="mb-3">📊 Prediction for ${module}:</h5>
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <div class="mb-2">Current Average</div>
+                    <div class="display-6">${currentAvg.toFixed(1)}%</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-2">Predicted Average</div>
+                    <div class="display-6 text-${color}">${predictedAvg.toFixed(1)}%</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-2">Status</div>
+                    <div class="display-6">
+                        <span class="badge bg-${color}">${passStatus}</span>
+                    </div>
+                </div>
+            </div>
+            <hr>
+            <p class="mb-0 text-center">
+                ${predictedAvg >= 40
+            ? `<i class="bi bi-check-circle me-2"></i>Great! You're on track to pass ${module}!`
+            : `<i class="bi bi-exclamation-triangle me-2"></i>You need to score higher to pass.`
+        }
+            </p>
+        </div>
+    `;
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function getColorForModule(module) {
+    const colors = {
+        'AAA': '#0d6efd',
+        'BBB': '#6610f2',
+        'CCC': '#6f42c1',
+        'DDD': '#d63384',
+        'EEE': '#dc3545',
+        'FFF': '#fd7e14',
+        'GGG': '#198754'
+    };
+    return colors[module] || '#6c757d';
+}
+// ============================================
+// INITIALIZE ON PAGE LOAD
+// ============================================
+document.addEventListener("DOMContentLoaded", function () {
+    const studentId = new URLSearchParams(window.location.search).get("id") || "11391";
+    loadStudentData(studentId);
+});
 
 // ============================================
 // LECTURER DASHBOAD
@@ -2193,7 +2704,7 @@ if ('performance' in window) {
     });
 }
 
-// ============================================
+/* ============================================
 // ✨ ENHANCED INTERACTIVE FEATURES ✨
 // ============================================
 
@@ -2396,7 +2907,8 @@ function renderInteractiveTimeline() {
     `;
 
     container.innerHTML = html;
-}
+} */
+
 
 function toggleTimelineDetails(index) {
     const details = document.querySelector(`.timeline-details-${index}`);
@@ -2602,7 +3114,7 @@ function addExpandableFeatures() {
 // ============================================
 function initializeInteractiveFeatures(data) {
     setTimeout(() => {
-        generateInteractiveTimeline(data);
+        //generateInteractiveTimeline(data);
         addInteractiveChartControls();
         makePerformanceCardsInteractive();
         makeModuleProgressInteractive();

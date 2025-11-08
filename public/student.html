@@ -331,18 +331,6 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* ============================================
-   INTERACTIVE FEATURES CSS
-   ============================================ */
-
-        /* Interactive Timeline Styles */
-        .timeline-item:hover .timeline-dot {
-            width: 22px !important;
-            height: 22px !important;
-            left: 31px !important;
-            top: 19px !important;
-        }
-
         /* Chart Control Buttons */
         .chart-controls .btn {
             padding: 4px 8px;
@@ -356,41 +344,8 @@
 
         /* Smooth transitions */
         .card,
-        .progress,
-        .timeline-item {
+        .progress {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Purple outline button */
-        .btn-outline-purple {
-            color: #9b59b6;
-            border-color: #9b59b6;
-        }
-
-        .btn-outline-purple:hover,
-        .btn-outline-purple.active {
-            background-color: #9b59b6;
-            color: white;
-            border-color: #9b59b6;
-        }
-
-        /* Timeline scrollbar */
-        #interactiveTimeline::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        #interactiveTimeline::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        #interactiveTimeline::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 10px;
-        }
-
-        #interactiveTimeline::-webkit-scrollbar-thumb:hover {
-            background: #5568d3;
         }
     </style>
 </head>
@@ -402,9 +357,21 @@
             <h4><i class="bi bi-mortarboard-fill"></i> EduTrack</h4>
         </div>
         <div class="sidebar-nav">
-            <a href="#overviewSection" class="nav-link active">
+            <a href="#urgentActions" class="nav-link active">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>Urgent Actions</span>
+            </a>
+            <a href="#recommendations" class="nav-link">
+                <i class="bi bi-lightbulb-fill"></i>
+                <span>Recommendations</span>
+            </a>
+            <a href="#overviewSection" class="nav-link">
                 <i class="bi bi-speedometer2"></i>
                 <span>Overview</span>
+            </a>
+            <a href="#goalTracker" class="nav-link">
+                <i class="bi bi-bullseye"></i>
+                <span>My Goals</span>
             </a>
             <a href="#progressSection" class="nav-link">
                 <i class="bi bi-graph-up"></i>
@@ -413,10 +380,6 @@
             <a href="#deadlinesSection" class="nav-link">
                 <i class="bi bi-calendar-event"></i>
                 <span>Deadlines</span>
-            </a>
-            <a href="#updatesFeed" class="nav-link">
-                <i class="bi bi-bell"></i>
-                <span>Recent Updates</span>
             </a>
             <a href="#engagementSection" class="nav-link">
                 <i class="bi bi-activity"></i>
@@ -454,55 +417,53 @@
             <span class="badge bg-success">Active</span>
         </div>
 
-        <!-- Performance Summary Cards -->
+        <!-- ============================================
+             🚨 PRIORITY 1: URGENT ACTIONS PANEL
+             ============================================ -->
+        <div id="urgentActions" class="mb-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- ============================================
+             💡 PRIORITY 2: ACTIONABLE RECOMMENDATIONS
+             ============================================ -->
+        <div id="recommendations" class="mb-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- ============================================
+             ⚠️ PRIORITY 3: AT-RISK WARNINGS
+             ============================================ -->
+        <div id="atRiskWarning" class="mb-4"></div>
+
+        <!-- ============================================
+             📊 PRIORITY 4: PERFORMANCE SUMMARY CARDS
+             ============================================ -->
         <div id="overviewSection" class="mb-4">
             <div id="performanceSummary"></div>
         </div>
 
-        <!-- At-Risk Warning -->
-        <div id="atRiskWarning" class="mb-4"></div>
-
-        <!-- Dashboard Content -->
+        <!-- Dashboard Content Grid -->
         <div class="row g-4">
 
-            <!-- 1️⃣ Quick Overview -->
-            <div id="overviewSection" class="mb-4">
-                <div id="performanceSummary"></div>
-            </div>
-            <div id="atRiskWarning" class="mb-4"></div>
-
-            <!-- 2️⃣ Academic Progress -->
-            <div class="col-12 col-lg-8" id="progressSection">
-                <div class="card">
+            <!-- ============================================
+                 🎯 NEW: GOAL TRACKER (Shaffer's Self-Regulation)
+                 ============================================ -->
+            <div class="col-12 col-lg-4" id="goalTracker">
+                <div class="card h-100">
                     <div class="card-header bg-success text-white">
-                        <i class="bi bi-trophy"></i>
-                        Academic Performance Over Time
+                        <i class="bi bi-bullseye me-2"></i>
+                        My Learning Goals
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="progressChart"></canvas>
-                        </div>
+                    <div class="card-body" id="goalTrackerContent">
+                        <!-- Will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
 
-            <div class="col-12 col-lg-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-bullseye"></i>
-                        Module Completion Progress
-                    </div>
-                    <div class="card-body">
-                        <div id="progressBars">
-                            <div class="text-center text-muted">Loading progress...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3️⃣ Upcoming Deadlines -->
-            <div class="col-12" id="deadlinesSection">
-                <div class="card">
+            <!-- 📅 UPCOMING DEADLINES -->
+            <div class="col-12 col-lg-4" id="deadlinesSection">
+                <div class="card h-100">
                     <div class="card-header bg-warning text-dark">
                         <i class="bi bi-calendar-event"></i>
                         Upcoming Deadlines
@@ -520,7 +481,112 @@
                 </div>
             </div>
 
-            <!-- 4️⃣ Recent Updates -->
+            <!-- 🔥 CONSISTENCY TRACKER -->
+            <div class="col-12 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <i class="bi bi-fire me-2"></i>
+                        Study Consistency Streak
+                    </div>
+                    <div class="card-body">
+                        <div id="consistencyTracker"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================
+                 🧮 NEW: WHAT-IF CALCULATOR (Shaffer's Planning)
+                 ============================================ -->
+            <div class="col-12" id="whatIfCalculator">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-calculator me-2"></i>
+                        🧮 Grade Calculator: "What If?"
+                    </div>
+                    <div class="card-body" id="whatIfCalculatorContent">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📈 ACADEMIC PROGRESS CHART (WITH INTERACTIVE CONTROLS) -->
+            <div class="col-12 col-lg-8" id="progressSection">
+                <div class="card">
+                    <div class="card-header bg-success text-white" style="display: flex; align-items: center;">
+                        <div style="flex: 1;">
+                            <i class="bi bi-trophy"></i>
+                            Academic Performance Over Time
+                        </div>
+                        <div class="chart-controls d-inline-flex gap-2">
+                            <button class="btn btn-sm btn-light active" onclick="changeProgressChartType('line')"
+                                title="Line Chart">
+                                <i class="bi bi-graph-up"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="changeProgressChartType('bar')"
+                                title="Bar Chart">
+                                <i class="bi bi-bar-chart"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="changeProgressChartType('scatter')"
+                                title="Scatter Plot">
+                                <i class="bi bi-diagram-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="progressChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📊 MODULE PROGRESS -->
+            <div class="col-12 col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-book"></i>
+                        Module Completion Progress
+                    </div>
+                    <div class="card-body">
+                        <div id="progressBars">
+                            <div class="text-center text-muted">Loading progress...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📊 ENGAGEMENT STATISTICS (WITH INTERACTIVE CHART) -->
+            <div class="col-12" id="engagementSection">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white" style="display: flex; align-items: center;">
+                        <div style="flex: 1;">
+                            <i class="bi bi-bar-chart-line"></i>
+                            VLE Engagement Statistics
+                        </div>
+                        <div class="chart-controls d-inline-flex gap-2">
+                            <button class="btn btn-sm btn-light active" onclick="changeActivityChartType('bar')"
+                                title="Bar Chart">
+                                <i class="bi bi-bar-chart-fill"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="changeActivityChartType('line')"
+                                title="Line Chart">
+                                <i class="bi bi-graph-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="vleEngagement" class="mb-4">
+                            <div class="text-center text-muted">Loading engagement data...</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📢 RECENT UPDATES -->
             <div class="col-12">
                 <div class="card">
                     <div class="card-header bg-secondary text-white">
@@ -535,28 +601,10 @@
                 </div>
             </div>
 
-            <!-- 5️⃣ Engagement Statistics -->
-            <div class="col-12" id="engagementSection">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-bar-chart-line"></i>
-                        VLE Engagement Statistics
-                    </div>
-                    <div class="card-body">
-                        <div id="vleEngagement" class="mb-4">
-                            <div class="text-center text-muted">Loading engagement data...</div>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="activityChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 6️⃣ Personal Profile -->
+            <!-- 👤 PERSONAL PROFILE (LOWEST PRIORITY) -->
             <div class="col-12" id="profileSection">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-dark text-white">
                         <i class="bi bi-person-badge"></i>
                         Personal Profile
                     </div>
@@ -574,7 +622,6 @@
             </div>
 
         </div>
-
     </div>
 
     <!-- Toast Container -->
@@ -602,7 +649,7 @@
         });
 
         // Intersection Observer for active nav highlighting
-        const sections = document.querySelectorAll('[id$="Section"]');
+        const sections = document.querySelectorAll('[id]');
         const navLinks = document.querySelectorAll('.sidebar .nav-link[href^="#"]');
 
         const observerOptions = {
@@ -626,11 +673,9 @@
 
         sections.forEach(section => observer.observe(section));
 
-        // Mobile sidebar toggle (if needed)
+        // Mobile sidebar toggle
         if (window.innerWidth <= 768) {
             const sidebar = document.querySelector('.sidebar');
-
-            // Create hamburger menu button
             const menuBtn = document.createElement('button');
             menuBtn.className = 'btn btn-primary position-fixed top-0 start-0 m-3';
             menuBtn.style.zIndex = '1001';
@@ -638,7 +683,6 @@
             menuBtn.onclick = () => sidebar.classList.toggle('show');
             document.body.appendChild(menuBtn);
 
-            // Close sidebar when clicking outside
             document.addEventListener('click', (e) => {
                 if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('show')) {
                     sidebar.classList.remove('show');
