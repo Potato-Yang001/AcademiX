@@ -41,7 +41,6 @@
             z-index: 0;
         }
 
-        /* Sidebar Styles */
         .sidebar {
             position: fixed;
             top: 0;
@@ -75,10 +74,6 @@
             gap: 0.5rem;
         }
 
-        .sidebar .logo i {
-            font-size: 1.8rem;
-        }
-
         .sidebar-nav {
             flex: 1;
             padding: 1rem 0;
@@ -97,11 +92,6 @@
             text-decoration: none;
         }
 
-        .sidebar .nav-link i {
-            font-size: 1.2rem;
-            width: 24px;
-        }
-
         .sidebar .nav-link:hover {
             background: var(--sidebar-hover);
             color: #fff;
@@ -115,50 +105,6 @@
             border-left-color: #dc3545;
         }
 
-        .sidebar .nav-link.text-danger:hover {
-            border-left-color: #dc3545;
-        }
-
-        .sidebar .profile {
-            margin-top: auto;
-            padding: 1.25rem 1.5rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.2);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .sidebar .profile .avatar {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #dc3545, #c82333);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .sidebar .profile .info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .sidebar .profile .name {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .sidebar .profile .role {
-            font-size: 0.75rem;
-            color: #6c757d;
-        }
-
-        /* Content Area */
         .content {
             margin-left: var(--sidebar-width);
             padding: 2rem;
@@ -173,19 +119,8 @@
             padding: 1.75rem 2rem;
             margin-bottom: 2rem;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
         }
 
-        .page-header h2 {
-            margin: 0;
-            font-weight: 700;
-            color: #1a1d29;
-            font-size: 1.75rem;
-        }
-
-        /* Summary Cards */
         .summary-card {
             border: none;
             border-radius: 15px;
@@ -211,13 +146,45 @@
             margin: 0.5rem 0;
         }
 
-        .summary-card p {
-            margin: 0;
-            opacity: 0.9;
-            font-size: 0.95rem;
+        .alert-card {
+            border-radius: 10px;
+            padding: 1.25rem;
+            border-left: 4px solid;
+            transition: transform 0.2s ease;
+            height: 100%;
         }
 
-        /* Card Enhancements */
+        .alert-card:hover {
+            transform: translateX(5px);
+        }
+
+        .alert-card.severity-high {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+
+        .alert-card.severity-medium {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+
+        .alert-card h5 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+
+        .alert-card .description {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
         .card {
             border: none;
             border-radius: 15px;
@@ -238,42 +205,12 @@
             padding: 1.25rem 1.5rem;
             font-weight: 600;
             font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-
-        .card-header i {
-            font-size: 1.3rem;
-        }
-
-        .card-body {
-            padding: 1.5rem;
         }
 
         .chart-container {
             position: relative;
             height: 400px;
             padding: 1rem 0;
-        }
-
-        canvas {
-            max-height: 400px !important;
-        }
-
-        /* Table Styles */
-        .table-responsive {
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .table {
-            margin: 0;
-        }
-
-        .table thead {
-            background: #f8f9fa;
         }
 
         .table th {
@@ -288,40 +225,6 @@
             vertical-align: middle;
         }
 
-        .table tbody tr {
-            border-bottom: 1px solid #f0f0f0;
-            transition: background 0.2s ease;
-        }
-
-        .table tbody tr:hover {
-            background: #f8f9fa;
-        }
-
-        /* Search and Filter */
-        .search-box {
-            position: relative;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6c757d;
-        }
-
-        .search-box input {
-            padding-left: 2.5rem;
-            border-radius: 50px;
-            border: 2px solid #e9ecef;
-        }
-
-        .search-box input:focus {
-            border-color: #dc3545;
-            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.1);
-        }
-
-        /* Badge Styles */
         .status-badge {
             padding: 0.375rem 0.75rem;
             border-radius: 50px;
@@ -329,7 +232,21 @@
             font-weight: 600;
         }
 
-        /* Responsive */
+        .status-excellent {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-monitor {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .status-risk {
+            background: #ffebee;
+            color: #c62828;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -343,45 +260,6 @@
                 margin-left: 0;
                 padding: 1rem;
             }
-
-            .summary-card h3 {
-                font-size: 2rem;
-            }
-        }
-
-        /* Loading Animation */
-        .loading-spinner {
-            display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #dc3545;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Scrollbar */
-        .sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
         }
     </style>
 </head>
@@ -397,25 +275,29 @@
                 <i class="bi bi-speedometer2"></i>
                 <span>Overview</span>
             </a>
+            <a href="#alerts" class="nav-link">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>Critical Alerts</span>
+            </a>
             <a href="#enrolment" class="nav-link">
                 <i class="bi bi-people-fill"></i>
                 <span>Enrolment Tracking</span>
             </a>
-            <a href="#subjects" class="nav-link">
-                <i class="bi bi-book-fill"></i>
-                <span>Subjects Offered</span>
-            </a>
-            <a href="#students" class="nav-link">
-                <i class="bi bi-person-lines-fill"></i>
-                <span>Student Registry</span>
-            </a>
-            <a href="#demographics" class="nav-link">
-                <i class="bi bi-bar-chart-fill"></i>
-                <span>Demographics</span>
-            </a>
             <a href="#outcomes" class="nav-link">
                 <i class="bi bi-trophy-fill"></i>
-                <span>Outcomes</span>
+                <span>Student Outcomes</span>
+            </a>
+            <a href="#performance" class="nav-link">
+                <i class="bi bi-bar-chart-fill"></i>
+                <span>Course Performance</span>
+            </a>
+            <a href="#subjects" class="nav-link">
+                <i class="bi bi-book-fill"></i>
+                <span>Subjects Catalog</span>
+            </a>
+            <a href="#demographics" class="nav-link">
+                <i class="bi bi-pie-chart-fill"></i>
+                <span>Demographics</span>
             </a>
             <hr style="margin: 1rem 1.5rem; border-color: rgba(255,255,255,0.1);">
             <a href="index.html" class="nav-link text-danger">
@@ -423,32 +305,26 @@
                 <span>Logout</span>
             </a>
         </div>
-        <div class="profile">
-            <div class="avatar">A</div>
-            <div class="info">
-                <div class="name">Administrator</div>
-                <div class="role">System Admin</div>
-            </div>
-        </div>
     </div>
 
     <!-- Main Content -->
     <div class="content">
         <!-- Page Header -->
         <div class="page-header">
-            <i class="bi bi-shield-check" style="font-size: 2rem; color: #dc3545;"></i>
-            <div style="flex: 1;">
-                <h2>Administrator Dashboard</h2>
-                <small class="text-muted">System overview and management tools</small>
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h2 class="mb-1"><i class="bi bi-shield-check text-danger me-2"></i>Administrator Dashboard</h2>
+                    <small class="text-muted">System overview and performance metrics</small>
+                </div>
+                <button class="btn btn-danger" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="refreshDashboard()">
-                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-            </button>
         </div>
 
-        <!-- Summary Cards Section -->
+        <!-- Summary Cards -->
         <div id="overview" class="mb-4">
-            <div class="row g-4" id="summaryCards">
+            <div class="row g-4">
                 <div class="col-12 col-sm-6 col-lg-3">
                     <div class="summary-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                         <i class="bi bi-people-fill icon"></i>
@@ -480,15 +356,62 @@
             </div>
         </div>
 
-        <!-- Enrolment Tracking Section -->
+        <!-- Critical Alerts -->
+        <div id="alerts" class="mb-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Critical Alerts & At-Risk Analysis
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-12 col-md-4">
+                            <div class="alert-card severity-high">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-graph-down-arrow fs-2 me-3 text-danger"></i>
+                                    <div class="flex-grow-1">
+                                        <h5 class="text-danger">Low Assessment Scores</h5>
+                                        <div class="value text-danger" id="lowScoreCount">0</div>
+                                        <div class="description text-danger">Students with scores below 40%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="alert-card severity-medium">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-exclamation-triangle fs-2 me-3 text-warning"></i>
+                                    <div class="flex-grow-1">
+                                        <h5 class="text-warning">High Withdrawal Courses</h5>
+                                        <div class="value text-warning" id="highWithdrawalCount">0</div>
+                                        <div class="description text-warning">Courses with >30% withdrawal rate</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="alert-card severity-medium">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-activity fs-2 me-3 text-warning"></i>
+                                    <div class="flex-grow-1">
+                                        <h5 class="text-warning">Low Engagement</h5>
+                                        <div class="value text-warning" id="lowEngagementCount">0</div>
+                                        <div class="description text-warning">Students with minimal activity</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enrollment Tracking -->
         <div id="enrolment" class="mb-4">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <div>
-                        <i class="bi bi-graph-up me-2"></i>
-                        Enrolment Tracking by Course
-                    </div>
-                    <span class="badge bg-white text-primary">Live Data</span>
+                    <i class="bi bi-graph-up me-2"></i>
+                    Enrolment Tracking by Course
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
@@ -498,96 +421,52 @@
             </div>
         </div>
 
-        <!-- Subjects Offered Section -->
-        <div id="subjects" class="mb-4">
+        <!-- Outcomes Distribution -->
+        <div id="outcomes" class="mb-4">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <div>
-                        <i class="bi bi-journal-bookmark me-2"></i>
-                        Subjects Offered Summary
-                    </div>
-                    <div class="search-box" style="width: 300px;">
-                        <i class="bi bi-search"></i>
-                        <input type="text" class="form-control form-control-sm" id="searchSubjects"
-                            placeholder="Search subjects...">
-                    </div>
+                    <i class="bi bi-trophy-fill me-2"></i>
+                    Final Outcomes Distribution
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="subjectsTable">
-                            <thead>
-                                <tr>
-                                    <th>Module Code</th>
-                                    <th>Presentation</th>
-                                    <th>Duration (Days)</th>
-                                    <th>Enrolments</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="subjectsTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center">
-                                        <div class="loading-spinner"></div> Loading subjects...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Student Registry Section -->
-        <div id="students" class="mb-4">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <div>
-                        <i class="bi bi-person-check me-2"></i>
-                        Student Registration Status
-                    </div>
-                    <div class="d-flex gap-2">
-                        <select class="form-select form-select-sm" id="filterStatus" style="width: 150px;">
-                            <option value="all">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="withdrawn">Withdrawn</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                        <div class="search-box" style="width: 250px;">
-                            <i class="bi bi-search"></i>
-                            <input type="text" class="form-control form-control-sm" id="searchStudents"
-                                placeholder="Search students...">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 col-lg-6">
+                            <div class="chart-container" style="height: 350px;">
+                                <canvas id="outcomeChart"></canvas>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="studentsTable">
-                            <thead>
-                                <tr>
-                                    <th>Student ID</th>
-                                    <th>Enrolled Modules</th>
-                                    <th>Credits</th>
-                                    <th>Final Result</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="studentsTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center">
-                                        <div class="loading-spinner"></div> Loading students...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="p-3 border-top">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">Showing <span id="studentsCount">0</span> students</small>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-secondary" id="prevPage">Previous</button>
-                                <button class="btn btn-outline-secondary" disabled>Page <span
-                                        id="currentPage">1</span></button>
-                                <button class="btn btn-outline-secondary" id="nextPage">Next</button>
+                        <div class="col-12 col-lg-6 d-flex flex-column justify-content-center">
+                            <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div style="width: 20px; height: 20px; background: #4caf50; border-radius: 4px;"
+                                        class="me-3"></div>
+                                    <strong>Pass</strong>
+                                </div>
+                                <h4 class="mb-0" id="passCount">0</h4>
+                            </div>
+                            <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div style="width: 20px; height: 20px; background: #f44336; border-radius: 4px;"
+                                        class="me-3"></div>
+                                    <strong>Fail</strong>
+                                </div>
+                                <h4 class="mb-0" id="failCount">0</h4>
+                            </div>
+                            <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div style="width: 20px; height: 20px; background: #ff9800; border-radius: 4px;"
+                                        class="me-3"></div>
+                                    <strong>Withdrawn</strong>
+                                </div>
+                                <h4 class="mb-0" id="withdrawCount">0</h4>
+                            </div>
+                            <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div style="width: 20px; height: 20px; background: #2196f3; border-radius: 4px;"
+                                        class="me-3"></div>
+                                    <strong>Distinction</strong>
+                                </div>
+                                <h4 class="mb-0" id="distCount">0</h4>
                             </div>
                         </div>
                     </div>
@@ -595,13 +474,84 @@
             </div>
         </div>
 
-        <!-- Demographics Section -->
+        <!-- Course Performance Table - FIXED -->
+        <div id="performance" class="mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-bar-chart-line me-2"></i>
+                    Course Performance Analysis
+                    <small class="d-block mt-1 opacity-75">Academic outcomes and risk assessment</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 12%;">Module</th>
+                                    <th style="width: 13%;">Presentation</th>
+                                    <th class="text-end" style="width: 11%;">Students</th>
+                                    <th class="text-end" style="width: 11%;">Avg Score</th>
+                                    <th style="width: 20%;">Pass Rate</th>
+                                    <th style="width: 20%;">Withdrawal</th>
+                                    <th class="text-center" style="width: 13%;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="performanceTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading course performance data...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Subjects Catalog - BEAUTIFUL VERSION -->
+        <div id="subjects" class="mb-4">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-book-fill me-2"></i>
+                    Subjects Catalog
+                    <small class="d-block mt-1 opacity-75">Course offerings and enrollment capacity</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 20%;">Module</th>
+                                    <th style="width: 20%;">Semester</th>
+                                    <th style="width: 35%;">Enrollment Progress</th>
+                                    <th class="text-center" style="width: 25%;">Demand Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subjectsTableBody">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="spinner-border text-secondary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading subjects catalog...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demographics -->
         <div id="demographics" class="mb-4">
             <div class="row g-4">
-                <!-- Gender Distribution -->
                 <div class="col-12 col-lg-6">
                     <div class="card">
-                        <div class="card-header bg-success text-white">
+                        <div class="card-header bg-warning text-dark">
                             <i class="bi bi-gender-ambiguous me-2"></i>
                             Gender Distribution
                         </div>
@@ -609,18 +559,12 @@
                             <div class="chart-container" style="height: 300px;">
                                 <canvas id="genderChart"></canvas>
                             </div>
-                            <div class="text-center mt-3">
-                                <span class="badge bg-primary me-2">👨 Male: <span id="maleCount">0</span></span>
-                                <span class="badge bg-danger">👩 Female: <span id="femaleCount">0</span></span>
-                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Age Distribution -->
                 <div class="col-12 col-lg-6">
                     <div class="card">
-                        <div class="card-header bg-warning text-dark">
+                        <div class="card-header bg-secondary text-white">
                             <i class="bi bi-calendar3 me-2"></i>
                             Age Distribution
                         </div>
@@ -628,54 +572,23 @@
                             <div class="chart-container" style="height: 300px;">
                                 <canvas id="ageChart"></canvas>
                             </div>
-                            <div class="text-center mt-3">
-                                <span class="badge bg-info me-2">🧑‍🎓 Young (0-35): <span
-                                        id="youngCount">0</span></span>
-                                <span class="badge bg-success me-2">👨 Adult (36-55): <span
-                                        id="adultCount">0</span></span>
-                                <span class="badge bg-warning">👴 Older (55+): <span id="olderCount">0</span></span>
-                            </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Outcomes Section -->
-        <div id="outcomes" class="mb-4">
-            <div class="card">
-                <div class="card-header bg-danger text-white">
-                    <i class="bi bi-bar-chart-fill me-2"></i>
-                    Final Outcomes Distribution
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="outcomeChart"></canvas>
-                    </div>
-                    <div class="text-center mt-3">
-                        <span class="badge bg-success me-2">✅ Pass: <span id="passCount">0</span></span>
-                        <span class="badge bg-danger me-2">❌ Fail: <span id="failCount">0</span></span>
-                        <span class="badge bg-warning me-2">🔄 Withdrawn: <span id="withdrawCount">0</span></span>
-                        <span class="badge bg-primary">🏆 Distinction: <span id="distCount">0</span></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
     <script>
-        // Enhanced navigation
+        // Navigation
         document.querySelectorAll('.sidebar .nav-link').forEach(link => {
             link.addEventListener('click', function (e) {
                 if (this.getAttribute('href').startsWith('#')) {
                     e.preventDefault();
-                    document.querySelectorAll('.sidebar .nav-link')
-                        .forEach(l => l.classList.remove('active'));
+                    document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
                     this.classList.add('active');
-
                     const target = document.querySelector(this.getAttribute('href'));
                     if (target) {
                         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -683,23 +596,6 @@
                 }
             });
         });
-
-        // Mobile menu toggle
-        if (window.innerWidth <= 768) {
-            const sidebar = document.querySelector('.sidebar');
-            const menuBtn = document.createElement('button');
-            menuBtn.className = 'btn btn-danger position-fixed top-0 start-0 m-3';
-            menuBtn.style.zIndex = '1001';
-            menuBtn.innerHTML = '<i class="bi bi-list"></i>';
-            menuBtn.onclick = () => sidebar.classList.toggle('show');
-            document.body.appendChild(menuBtn);
-
-            document.addEventListener('click', (e) => {
-                if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                }
-            });
-        }
     </script>
 </body>
 
