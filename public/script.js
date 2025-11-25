@@ -61,6 +61,7 @@ async function loadStudentData(studentId = "11391") {
                     No student found with ID: ${studentId}
                 </div>`;
             return;
+            window.studentData = data;
         }
 
         // Generate missing data from existing data
@@ -994,9 +995,12 @@ function renderGoalTracker(data) {
     const container = document.getElementById("goalTrackerContent");
     if (!container) return;
 
-    const currentAvg = data.scores
-        ? (data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length)
-        : 0;
+    if (!data.scores || data.scores.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No assessment data available</p>';
+        return;
+    }
+
+    const currentAvg = data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length;
 
     const goals = [
         { name: 'Pass All Modules', target: 40, current: currentAvg, icon: 'check-circle' },
@@ -1005,9 +1009,23 @@ function renderGoalTracker(data) {
     ];
 
     const html = goals.map(goal => {
-        const progress = Math.min((goal.current / goal.target) * 100, 100);
         const achieved = goal.current >= goal.target;
-        const color = achieved ? 'success' : progress > 75 ? 'info' : progress > 50 ? 'warning' : 'danger';
+
+        // 🔧 FIX: Calculate progress correctly - don't cap at 100 here
+        const rawProgress = (goal.current / goal.target) * 100;
+        const displayProgress = Math.min(rawProgress, 100); // Only cap for display
+
+        // 🔧 FIX: Choose color based on achievement, not progress
+        let color;
+        if (achieved) {
+            color = 'success'; // Green if achieved
+        } else if (goal.current >= goal.target * 0.75) {
+            color = 'info'; // Blue if 75%+ of the way
+        } else if (goal.current >= goal.target * 0.5) {
+            color = 'warning'; // Yellow if 50%+ of the way
+        } else {
+            color = 'danger'; // Red if below 50%
+        }
 
         return `
             <div class="mb-3">
@@ -1021,16 +1039,25 @@ function renderGoalTracker(data) {
                 </div>
                 <div class="progress" style="height: 20px;">
                     <div class="progress-bar bg-${color}" 
-                         style="width: ${progress}%" 
-                         role="progressbar">
-                        ${progress.toFixed(0)}%
+                         style="width: ${displayProgress}%" 
+                         role="progressbar"
+                         aria-valuenow="${displayProgress}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                        ${displayProgress >= 100 ? '✓ Complete' : displayProgress.toFixed(0) + '%'}
                     </div>
                 </div>
                 ${!achieved ? `
-                    <small class="text-muted">
-                        Need ${(goal.target - goal.current).toFixed(1)}% more to reach goal
+                    <small class="text-muted mt-1 d-block">
+                        <i class="bi bi-arrow-up-right me-1"></i>
+                        Need ${(goal.target - goal.current).toFixed(1)}% more to reach this goal
                     </small>
-                ` : ''}
+                ` : `
+                    <small class="text-success mt-1 d-block">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Exceeded by ${(goal.current - goal.target).toFixed(1)}%
+                    </small>
+                `}
             </div>
         `;
     }).join('');
@@ -1134,6 +1161,18 @@ function updateWhatIfPrediction() {
             </p>
         </div>
     `;
+}
+
+function generateAdaptiveRecommendations(data) {
+    const trend = calculateTrend(data.scores);
+
+    if (trend === 'declining') {
+        // Reduce challenge
+        return "Consider seeking tutoring support";
+    } else if (trend === 'improving') {
+        // Increase challenge
+        return "You're doing great! Try tackling advanced problems";
+    }
 }
 
 // ============================================
@@ -3280,30 +3319,441 @@ function changeActivityChartType(type) {
     activityChartInstance.update('active');
 }
 
-// 🎯 FEATURE 3: INTERACTIVE PERFORMANCE CARDS
+// 7️⃣ INTERACTIVE PERFORMANCE CARDS (ENHANCED WITH DRILL-DOWN)
 function makePerformanceCardsInteractive() {
-    const cards = document.querySelectorAll('#performanceSummary .card');
+    setTimeout(() => {
+        const cards = document.querySelectorAll('#performanceSummary .card');
 
-    cards.forEach((card, index) => {
-        card.style.cursor = 'pointer';
-        card.style.transition = 'all 0.3s ease';
+        cards.forEach((card, index) => {
+            card.style.cursor = 'pointer';
+            card.style.transition = 'all 0.3s ease';
 
-        card.addEventListener('mouseenter', function () {
-            this.style.transform = 'scale(1.05) translateY(-5px)';
-            this.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+            card.addEventListener('mouseenter', function () {
+                this.style.transform = 'scale(1.05) translateY(-5px)';
+                this.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+            });
+
+            card.addEventListener('mouseleave', function () {
+                this.style.transform = 'scale(1) translateY(0)';
+                this.style.boxShadow = '';
+            });
+
+            // 🆕 DRILL-DOWN: Click to see details
+            card.addEventListener('click', function () {
+                const cardTitle = this.querySelector('small').textContent;
+                const cardValue = this.querySelector('h3').textContent;
+
+                // Show detailed breakdown based on which card was clicked
+                showPerformanceDetails(index, cardTitle, cardValue);
+            });
         });
+    }, 1000);
+}
 
-        card.addEventListener('mouseleave', function () {
-            this.style.transform = 'scale(1) translateY(0)';
-            this.style.boxShadow = '';
-        });
+// 🆕 DRILL-DOWN FUNCTION
+// 🆕 ALTERNATIVE: Show details in expandable section (NO MODAL)
+function showPerformanceDetails(cardIndex, title, value) {
+    const data = window.studentData;
+    if (!data || !data.scores) return;
 
-        card.addEventListener('click', function () {
-            const cardTitle = this.querySelector('small').textContent;
-            const cardValue = this.querySelector('h3').textContent;
+    let detailsHTML = '';
 
-            showToast(`${cardTitle}: ${cardValue}`, 'info');
-        });
+    switch (cardIndex) {
+        case 0: // Total Assessments
+            detailsHTML = generateTotalAssessmentsDetails(data.scores);
+            break;
+        case 1: // Average Score
+            detailsHTML = generateAverageScoreDetails(data.scores);
+            break;
+        case 2: // Passed Assessments
+            detailsHTML = generatePassedAssessmentsDetails(data.scores);
+            break;
+        case 3: // Best Score
+            detailsHTML = generateBestScoreDetails(data.scores);
+            break;
+    }
+
+    // Show in expandable section instead of modal
+    showDetailsExpanded(title, detailsHTML);
+}
+
+// Show details in an expandable card below performance summary
+function showDetailsExpanded(title, content) {
+    // Check if details section already exists
+    let detailsSection = document.getElementById('performanceDetails');
+
+    if (!detailsSection) {
+        // Create new section after performance summary
+        detailsSection = document.createElement('div');
+        detailsSection.id = 'performanceDetails';
+        detailsSection.className = 'mb-4';
+
+        const performanceSummary = document.getElementById('overviewSection');
+        performanceSummary.insertAdjacentElement('afterend', detailsSection);
+    }
+
+    // Populate with content
+    detailsSection.innerHTML = `
+        <div class="card border-primary" style="animation: slideDown 0.3s ease;">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-zoom-in me-2"></i>${title} - Detailed View
+                </h5>
+                <button class="btn btn-sm btn-light" onclick="closePerformanceDetails()">
+                    <i class="bi bi-x-lg"></i> Close
+                </button>
+            </div>
+            <div class="card-body">
+                ${content}
+            </div>
+        </div>
+    `;
+
+    // Scroll to details
+    detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Close details section
+function closePerformanceDetails() {
+    const detailsSection = document.getElementById('performanceDetails');
+    if (detailsSection) {
+        detailsSection.style.animation = 'slideUp 0.3s ease';
+        setTimeout(() => {
+            detailsSection.remove();
+        }, 300);
+    }
+}
+
+// Generate details for each card type
+function generateTotalAssessmentsDetails(scores) {
+    const html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Module</th>
+                        <th>Assessment Type</th>
+                        <th>Date</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${scores.map((s, i) => {
+        const statusClass = Number(s.score) >= 70 ? 'success' :
+            Number(s.score) >= 40 ? 'warning' : 'danger';
+        const statusText = Number(s.score) >= 70 ? 'Excellent' :
+            Number(s.score) >= 40 ? 'Pass' : 'Fail';
+
+        return `
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td><span class="badge" style="background: ${getColorForModule(s.code_module)}">${s.code_module}</span></td>
+                                <td>${s.assessment_type || 'Assessment'}</td>
+                                <td>Day ${s.date_submitted}</td>
+                                <td><strong>${s.score}%</strong></td>
+                                <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+                            </tr>
+                        `;
+    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    return html;
+}
+
+function generateAverageScoreDetails(scores) {
+    // Group by module
+    const moduleGroups = {};
+    scores.forEach(s => {
+        if (!moduleGroups[s.code_module]) {
+            moduleGroups[s.code_module] = [];
+        }
+        moduleGroups[s.code_module].push(Number(s.score));
+    });
+
+    const html = `
+        <div class="row g-3">
+            ${Object.entries(moduleGroups).map(([module, scores]) => {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const color = avg >= 70 ? 'success' : avg >= 40 ? 'warning' : 'danger';
+
+        return `
+                    <div class="col-md-6">
+                        <div class="card border-${color}">
+                            <div class="card-body">
+                                <h5 style="color: ${getColorForModule(module)}">${module}</h5>
+                                <div class="display-6 text-${color}">${avg.toFixed(1)}%</div>
+                                <small class="text-muted">${scores.length} assessments</small>
+                                <div class="progress mt-2" style="height: 10px;">
+                                    <div class="progress-bar bg-${color}" style="width: ${avg}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+    }).join('')}
+        </div>
+    `;
+    return html;
+}
+
+function generatePassedAssessmentsDetails(scores) {
+    const passed = scores.filter(s => Number(s.score) >= 40);
+    const failed = scores.filter(s => Number(s.score) < 40);
+
+    const html = `
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle me-2"></i>Passed: ${passed.length}</h5>
+                    <ul class="mb-0">
+                        ${passed.slice(0, 5).map(s => `
+                            <li>${s.code_module}: ${s.score}%</li>
+                        `).join('')}
+                        ${passed.length > 5 ? `<li class="text-muted">...and ${passed.length - 5} more</li>` : ''}
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-x-circle me-2"></i>Failed: ${failed.length}</h5>
+                    ${failed.length > 0 ? `
+                        <ul class="mb-0">
+                            ${failed.map(s => `
+                                <li>${s.code_module}: ${s.score}%</li>
+                            `).join('')}
+                        </ul>
+                    ` : '<p class="mb-0">No failed assessments! Great job!</p>'}
+                </div>
+            </div>
+        </div>
+    `;
+    return html;
+}
+
+function generateBestScoreDetails(scores) {
+    const sorted = [...scores].sort((a, b) => Number(b.score) - Number(a.score));
+    const top5 = sorted.slice(0, 5);
+
+    const html = `
+        <div class="list-group">
+            ${top5.map((s, i) => `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-warning text-dark me-2">#${i + 1}</span>
+                        <strong>${s.code_module}</strong>
+                        <br>
+                        <small class="text-muted">${s.assessment_type || 'Assessment'} - Day ${s.date_submitted}</small>
+                    </div>
+                    <div class="text-end">
+                        <h4 class="mb-0 text-success">${s.score}%</h4>
+                        ${i === 0 ? '<i class="bi bi-trophy-fill text-warning fs-3"></i>' : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    return html;
+}
+
+// Show details in a modal
+function showDetailsModal(title, content) {
+    // Remove any existing modal first
+    const existingModal = document.getElementById('detailsModal');
+    if (existingModal) {
+        const existingInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingInstance) {
+            existingInstance.dispose();
+        }
+        existingModal.remove();
+    }
+
+    // Remove any leftover backdrops
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+
+    // Create fresh modal
+    const modal = document.createElement('div');
+    modal.id = 'detailsModal';
+    modal.className = 'modal fade';
+    modal.setAttribute('tabindex', '-1');
+    modal.setAttribute('aria-labelledby', 'detailsModalTitle');
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="detailsModalTitle">
+                        <i class="bi bi-info-circle me-2"></i>${title}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailsModalBody">
+                    ${content}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Show modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+
+    // Clean up when hidden
+    modal.addEventListener('hidden.bs.modal', function () {
+        modalInstance.dispose();
+        modal.remove();
+
+        // Ensure body is clean
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+
+        // Remove any orphaned backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    });
+} function showDetailsModal(title, content) {
+    // Remove any existing modal first
+    const existingModal = document.getElementById('detailsModal');
+    if (existingModal) {
+        const existingInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingInstance) {
+            existingInstance.dispose();
+        }
+        existingModal.remove();
+    }
+
+    // Remove any leftover backdrops
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+
+    // Create fresh modal
+    const modal = document.createElement('div');
+    modal.id = 'detailsModal';
+    modal.className = 'modal fade';
+    modal.setAttribute('tabindex', '-1');
+    modal.setAttribute('aria-labelledby', 'detailsModalTitle');
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="detailsModalTitle">
+                        <i class="bi bi-info-circle me-2"></i>${title}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailsModalBody">
+                    ${content}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Show modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+
+    // Clean up when hidden
+    modal.addEventListener('hidden.bs.modal', function () {
+        modalInstance.dispose();
+        modal.remove();
+
+        // Ensure body is clean
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+
+        // Remove any orphaned backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    });
+} function showDetailsModal(title, content) {
+    // Remove any existing modal first
+    const existingModal = document.getElementById('detailsModal');
+    if (existingModal) {
+        const existingInstance = bootstrap.Modal.getInstance(existingModal);
+        if (existingInstance) {
+            existingInstance.dispose();
+        }
+        existingModal.remove();
+    }
+
+    // Remove any leftover backdrops
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+
+    // Create fresh modal
+    const modal = document.createElement('div');
+    modal.id = 'detailsModal';
+    modal.className = 'modal fade';
+    modal.setAttribute('tabindex', '-1');
+    modal.setAttribute('aria-labelledby', 'detailsModalTitle');
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="detailsModalTitle">
+                        <i class="bi bi-info-circle me-2"></i>${title}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailsModalBody">
+                    ${content}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Show modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+
+    // Clean up when hidden
+    modal.addEventListener('hidden.bs.modal', function () {
+        modalInstance.dispose();
+        modal.remove();
+
+        // Ensure body is clean
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+
+        // Remove any orphaned backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
     });
 }
 

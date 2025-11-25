@@ -57,3 +57,33 @@ h3 {
     padding: 10px;
     border: 1px solid #ddd;
 }
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+/* Highlight effect for drilled-down card */
+.card.highlighted {
+    box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+    border: 2px solid #0d6efd;
+}
