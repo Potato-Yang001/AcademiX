@@ -1203,16 +1203,19 @@ document.addEventListener("DOMContentLoaded", function () {
 // ============================================
 let classChartInstance = null;
 let currentRiskStudents = [];
+let allStudentScores = [];
 let participationChartInstance = null;
 let materialUsageChartInstance = null;
 let currentModuleCode = null;
+let currentRiskFilter = 'all';
+let currentFilteredStudents = [];
+let sortDirection = { id: "asc", score: "asc" };
 
 async function loadLecturerData(moduleCode) {
     if (!moduleCode) {
         moduleCode = document.getElementById("module").value;
     }
 
-    // Store current module
     currentModuleCode = moduleCode;
 
     const loadingEl = document.getElementById("loadingMessage");
@@ -1230,13 +1233,10 @@ async function loadLecturerData(moduleCode) {
 
         console.log('📊 Lecturer data received:', data);
 
-        // Render existing features
         renderLecturerSummary(data);
         renderClassPerformance(data.scores, moduleCode);
         renderRiskStudents(data.scores);
         renderParticipationTrends(data.trends);
-
-        // ✅ NEW: Render additional features
         renderModuleDeadlinesEnhanced(data, moduleCode);
         renderEngagementWarningsEnhanced(data, moduleCode);
         renderMaterialUsageEnhanced(data, moduleCode);
@@ -1256,6 +1256,7 @@ async function loadLecturerData(moduleCode) {
 
 function renderLecturerSummary(data) {
     const scores = data.scores.map(s => Number(s.score));
+    allStudentScores = data.scores;
     const totalStudents = Array.isArray(data.students) ? data.students.length : data.students;
     const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
@@ -1346,50 +1347,8 @@ function renderClassPerformance(scores, moduleCode) {
 
 function renderRiskStudents(scores) {
     currentRiskStudents = scores.filter(s => Number(s.score) < 40);
-    renderRiskTable(currentRiskStudents);
-}
-
-let sortDirection = { id: "asc", score: "asc" };
-
-function renderRiskTable(students) {
-    const tableHeader = `
-        <tr>
-            <th onclick="sortRiskTable('id')" style="cursor: pointer;">
-                ID <i class="bi bi-arrow-down-up"></i>
-            </th>
-            <th onclick="sortRiskTable('score')" style="cursor: pointer;">
-                Score <i class="bi bi-arrow-down-up"></i>
-            </th>
-        </tr>`;
-
-    const tableRows = students
-        .map(s => `
-            <tr>
-                <td>${s.id_student}</td>
-                <td><span class="badge bg-danger">${s.score}%</span></td>
-            </tr>
-        `).join("");
-
-    document.getElementById("riskTable").innerHTML = tableHeader + tableRows;
-}
-
-function sortRiskTable(by) {
-    if (by === "id") {
-        currentRiskStudents.sort((a, b) =>
-            sortDirection.id === "asc"
-                ? Number(a.id_student) - Number(b.id_student)
-                : Number(b.id_student) - Number(a.id_student)
-        );
-        sortDirection.id = sortDirection.id === "asc" ? "desc" : "asc";
-    } else if (by === "score") {
-        currentRiskStudents.sort((a, b) =>
-            sortDirection.score === "asc"
-                ? Number(a.score) - Number(b.score)
-                : Number(b.score) - Number(a.score)
-        );
-        sortDirection.score = sortDirection.score === "asc" ? "desc" : "asc";
-    }
-    renderRiskTable(currentRiskStudents);
+    currentRiskFilter = 'all';
+    filterRiskLevel('all');
 }
 
 function renderParticipationTrends(trends) {
@@ -1425,43 +1384,15 @@ function renderParticipationTrends(trends) {
     });
 }
 
-async function populateModuleDropdown() {
-    try {
-        const res = await fetch("/api/modules");
-        const modules = await res.json();
-        const select = document.getElementById("module");
-
-        select.innerHTML = modules.map(m => `<option value="${m}">${m}</option>`).join("");
-
-        if (modules.length > 0) {
-            loadLecturerData(modules[0]);
-        }
-
-        select.onchange = () => loadLecturerData(select.value);
-    } catch (error) {
-        console.error("Error loading modules:", error);
-    }
-}
-
-// ============================================
-// NEW FEATURE 1: ASSESSMENT DEADLINES
-// ============================================
 function renderModuleDeadlinesEnhanced(data, moduleCode) {
     const container = document.getElementById("moduleDeadlines");
-    if (!container) {
-        console.warn('moduleDeadlines container not found');
-        return;
-    }
+    if (!container) return;
 
-    // Generate assessments based on module pattern
     const assessments = generateModuleAssessments(moduleCode, data);
-
-    // Calculate current day from data
     const currentDay = data.scores && data.scores.length > 0
         ? Math.max(...data.scores.map(s => Number(s.date_submitted || 0))) + 5
         : 50;
 
-    // Get total students correctly
     let totalStudents = 50;
     if (typeof data.students === 'number') {
         totalStudents = data.students;
@@ -1471,51 +1402,36 @@ function renderModuleDeadlinesEnhanced(data, moduleCode) {
         totalStudents = new Set(data.scores.map(s => s.id_student)).size;
     }
 
-    console.log('📊 Current day:', currentDay, 'Total students:', totalStudents);
-
-    // 🔧 NEW: Calculate realistic submission counts based on timing
     const getSubmissionCount = (assessment, currentDay, totalStudents) => {
         const daysUntilDue = assessment.date - currentDay;
-
         if (daysUntilDue > 20) {
-            // Far future: very few submissions (0-20%)
             return Math.floor(totalStudents * (Math.random() * 0.2));
         } else if (daysUntilDue > 10) {
-            // 2-3 weeks away: some early submissions (20-50%)
             return Math.floor(totalStudents * (0.2 + Math.random() * 0.3));
         } else if (daysUntilDue > 3) {
-            // 1 week away: many submissions (50-75%)
             return Math.floor(totalStudents * (0.5 + Math.random() * 0.25));
         } else if (daysUntilDue > 0) {
-            // Last few days: most submissions (75-90%)
             return Math.floor(totalStudents * (0.75 + Math.random() * 0.15));
         } else if (daysUntilDue >= -3) {
-            // Just passed: nearly complete (85-95%)
             return Math.floor(totalStudents * (0.85 + Math.random() * 0.1));
         } else {
-            // Long past: complete or missing (90-98%)
             return Math.floor(totalStudents * (0.9 + Math.random() * 0.08));
         }
     };
 
-    // Separate upcoming and past
     const upcoming = assessments.filter(a => a.date > currentDay);
     const past = assessments.filter(a => a.date <= currentDay);
 
     let html = '<div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">';
 
-    // Upcoming deadlines
     if (upcoming.length > 0) {
         html += '<div class="fw-bold text-warning p-2 bg-light"><i class="bi bi-clock me-2"></i>Upcoming Deadlines</div>';
         upcoming.slice(0, 5).forEach(assessment => {
             const daysLeft = assessment.date - currentDay;
             const urgencyClass = daysLeft < 3 ? 'danger' : daysLeft < 7 ? 'warning' : 'success';
-
-            // Get realistic submission count
             const submitted = getSubmissionCount(assessment, currentDay, totalStudents);
             const submissionRate = totalStudents > 0 ? ((submitted / totalStudents) * 100).toFixed(0) : 0;
 
-            // Determine status message
             let statusMessage = '';
             if (submissionRate < 30) {
                 statusMessage = '<small class="text-muted d-block mt-1">⏳ Early stage</small>';
@@ -1556,7 +1472,6 @@ function renderModuleDeadlinesEnhanced(data, moduleCode) {
         `;
     }
 
-    // Past assessments
     if (past.length > 0) {
         html += '<div class="fw-bold text-muted p-2 bg-light mt-2"><i class="bi bi-check-circle me-2"></i>Recent Assessments</div>';
         past.slice(-3).forEach(assessment => {
@@ -1564,7 +1479,6 @@ function renderModuleDeadlinesEnhanced(data, moduleCode) {
             const submissionRate = totalStudents > 0 ? ((submitted / totalStudents) * 100).toFixed(0) : 0;
             const missing = totalStudents - submitted;
 
-            // Show warning if many students didn't submit
             let warningBadge = '';
             if (missing > totalStudents * 0.2) {
                 warningBadge = `<span class="badge bg-danger ms-2">${missing} missing</span>`;
@@ -1597,18 +1511,11 @@ function renderModuleDeadlinesEnhanced(data, moduleCode) {
 
     html += '</div>';
     container.innerHTML = html;
-    console.log('✅ Deadlines rendered with realistic submission rates');
 }
 
-// ============================================
-// NEW FEATURE 2: ENGAGEMENT WARNINGS
-// ============================================
 function renderEngagementWarningsEnhanced(data, moduleCode) {
     const container = document.getElementById("engagementWarnings");
-    if (!container) {
-        console.warn('engagementWarnings container not found');
-        return;
-    }
+    if (!container) return;
 
     if (!data.trends || data.trends.length === 0) {
         container.innerHTML = `
@@ -1620,28 +1527,20 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
         return;
     }
 
-    // Analyze trends to detect issues
     const recentTrends = data.trends.slice(-5);
     const avgRecentClicks = recentTrends.reduce((sum, t) => sum + t.clicks, 0) / recentTrends.length;
     const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
     const avgOverall = totalClicks / data.trends.length;
 
-    // Identify warnings
     const declining = avgRecentClicks < avgOverall * 0.7;
     const lowOverall = avgOverall < 30;
 
-    // Count at-risk students
     const failingCount = data.scores ? data.scores.filter(s => s.score < 40).length : 0;
     const totalStudents = data.students || 50;
     const highRiskPercent = ((failingCount / totalStudents) * 100).toFixed(0);
 
-    // Estimate inactive students (no data, so estimate)
-    const inactiveEstimate = Math.floor(totalStudents * 0.15); // 15% inactive
-    const lowEngagementEstimate = Math.floor(totalStudents * 0.25); // 25% low engagement
-
     let html = '';
 
-    // High-risk: failing students
     if (failingCount > 0 && failingCount >= totalStudents * 0.2) {
         html += `
             <div class="alert alert-danger d-flex align-items-start mb-3">
@@ -1657,7 +1556,6 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
         `;
     }
 
-    // Declining engagement warning
     if (declining) {
         html += `
             <div class="alert alert-warning d-flex align-items-start mb-3">
@@ -1670,7 +1568,6 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
         `;
     }
 
-    // Low overall engagement
     if (lowOverall) {
         html += `
             <div class="alert alert-info d-flex align-items-start mb-3">
@@ -1696,18 +1593,11 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
     }
 
     container.innerHTML = html;
-    console.log('✅ Engagement warnings rendered');
 }
 
-// ============================================
-// NEW FEATURE 3: MATERIAL USAGE CHART
-// ============================================
 function renderMaterialUsageEnhanced(data, moduleCode) {
     const container = document.getElementById("materialUsageChart");
-    if (!container) {
-        console.warn('materialUsageChart container not found');
-        return;
-    }
+    if (!container) return;
 
     if (!data.trends || data.trends.length === 0) {
         container.parentElement.innerHTML = `
@@ -1722,7 +1612,6 @@ function renderMaterialUsageEnhanced(data, moduleCode) {
 
     const ctx = container.getContext('2d');
 
-    // Generate material usage data from trends
     const materials = [
         'Course Overview', 'Lecture Notes', 'Video Lectures', 'Practice Problems',
         'Discussion Forum', 'Quiz', 'Assignment Brief', 'Reading Materials',
@@ -1738,12 +1627,10 @@ function renderMaterialUsageEnhanced(data, moduleCode) {
     materialClicks.sort((a, b) => b.clicks - a.clicks);
     const top10 = materialClicks.slice(0, 10);
 
-    // Destroy existing chart
     if (materialUsageChartInstance) {
         materialUsageChartInstance.destroy();
     }
 
-    // Create chart
     materialUsageChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1794,19 +1681,11 @@ function renderMaterialUsageEnhanced(data, moduleCode) {
             }
         }
     });
-
-    console.log('✅ Material usage chart rendered');
 }
 
-// ============================================
-// NEW FEATURE 4: TIME-ON-TASK ANALYSIS
-// ============================================
 function renderTimeAnalysisEnhanced(data, moduleCode) {
     const container = document.getElementById("timeAnalysis");
-    if (!container) {
-        console.warn('timeAnalysis container not found');
-        return;
-    }
+    if (!container) return;
 
     if (!data.trends || data.trends.length === 0) {
         container.innerHTML = `
@@ -1818,8 +1697,7 @@ function renderTimeAnalysisEnhanced(data, moduleCode) {
         return;
     }
 
-    // 🔧 FIX: Get total students correctly
-    let totalStudents = 50; // Default
+    let totalStudents = 50;
     if (typeof data.students === 'number') {
         totalStudents = data.students;
     } else if (Array.isArray(data.students)) {
@@ -1828,20 +1706,15 @@ function renderTimeAnalysisEnhanced(data, moduleCode) {
         totalStudents = new Set(data.scores.map(s => s.id_student)).size;
     }
 
-    // Calculate statistics
     const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
     const avgClicksPerStudent = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
 
-    // Find peak day
     const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
     const peakDay = peakTrend.day;
 
-    // Calculate engagement level
     const avgClicks = totalClicks / data.trends.length;
     const engagementLevel = avgClicks > 50 ? 'High' : avgClicks > 25 ? 'Medium' : 'Low';
     const engagementColor = avgClicks > 50 ? 'success' : avgClicks > 25 ? 'warning' : 'danger';
-
-    console.log('📊 Stats:', { totalClicks, totalStudents, avgClicksPerStudent, peakDay, engagementLevel });
 
     container.innerHTML = `
         <div class="row g-3">
@@ -1890,70 +1763,251 @@ function renderTimeAnalysisEnhanced(data, moduleCode) {
             avgClicks > 50 ? ' 🎉 Excellent engagement!' : ' 📊 Moderate engagement.'}
         </div>
     `;
-
-    console.log('✅ Time analysis rendered');
-}
-
-async function loadLecturerData(moduleCode) {
-    if (!moduleCode) {
-        moduleCode = document.getElementById("module").value;
-    }
-
-    currentModuleCode = moduleCode;
-
-    const loadingEl = document.getElementById("loadingMessage");
-    if (loadingEl) {
-        loadingEl.style.display = "flex";
-        loadingEl.innerHTML = `
-            <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
-            <span>Loading lecturer data for ${moduleCode}...</span>
-        `;
-    }
-
-    try {
-        const res = await fetch(`/api/lecturer/${moduleCode}`);
-        const data = await res.json();
-
-        // 🔧 DEBUG: Log the data structure
-        console.log('📊 Raw data received:', data);
-        console.log('📊 data.students type:', typeof data.students);
-        console.log('📊 data.students value:', data.students);
-        console.log('📊 data.scores length:', data.scores ? data.scores.length : 0);
-        console.log('📊 data.trends length:', data.trends ? data.trends.length : 0);
-
-        // Render existing features
-        renderLecturerSummary(data);
-        renderClassPerformance(data.scores, moduleCode);
-        renderRiskStudents(data.scores);
-        renderParticipationTrends(data.trends);
-
-        // ✅ NEW: Render additional features with fixed functions
-        renderModuleDeadlinesEnhanced(data, moduleCode);
-        renderEngagementWarningsEnhanced(data, moduleCode);
-        renderMaterialUsageEnhanced(data, moduleCode);
-        renderTimeAnalysisEnhanced(data, moduleCode);
-
-        if (loadingEl) {
-            loadingEl.innerHTML = "✅ Lecturer data loaded";
-            setTimeout(() => { loadingEl.style.display = "none"; }, 2000);
-        }
-    } catch (error) {
-        console.error("Error loading lecturer data:", error);
-        if (loadingEl) {
-            loadingEl.innerHTML = "❌ Error loading data";
-        }
-    }
 }
 
 // ============================================
-// NEW: EXPORT FUNCTIONS
+// DRILL-DOWN FUNCTIONS (SHAFFER'S 4 C'S)
+// ============================================
+
+function drillDownTotalStudents() {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    // USE ONLY CURRENT MODULE DATA
+    const scores = allStudentScores.map(s => Number(s.score));
+    const categories = {
+        'Distinction (80-100%)': scores.filter(s => s >= 80).length,
+        'Merit (60-79%)': scores.filter(s => s >= 60 && s < 80).length,
+        'Pass (40-59%)': scores.filter(s => s >= 40 && s < 60).length,
+        'Fail (0-39%)': scores.filter(s => s < 40).length
+    };
+
+    const modal = createDrillDownModal(`${currentModuleCode} - Student Performance Breakdown`, `
+        <div class="alert alert-primary mb-3">
+            <strong>Module: ${currentModuleCode}</strong> | Total Students: ${allStudentScores.length}
+        </div>
+        <div class="row g-3">
+            ${Object.entries(categories).map(([name, count]) => {
+        const percentage = ((count / scores.length) * 100).toFixed(1);
+        const color = name.includes('Distinction') ? 'success' :
+            name.includes('Merit') ? 'info' :
+                name.includes('Pass') ? 'warning' : 'danger';
+        return `
+                    <div class="col-md-6">
+                        <div class="card border-${color} h-100">
+                            <div class="card-body text-center">
+                                <h5 class="text-${color}">${name}</h5>
+                                <h2 class="display-4">${count}</h2>
+                                <p class="text-muted mb-0">${percentage}% of class</p>
+                                <div class="progress mt-2" style="height: 8px;">
+                                    <div class="progress-bar bg-${color}" style="width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+    }).join('')}
+        </div>
+        <div class="alert alert-info mt-3 mb-0">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Teaching Insight for ${currentModuleCode}:</strong> ${categories['Fail (0-39%)'] > scores.length * 0.2 ?
+            'High failure rate detected. Consider review sessions or additional support materials.' :
+            'Performance distribution is healthy. Continue current teaching approach.'}
+        </div>
+    `);
+
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+function drillDownClassScore() {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    // USE ONLY CURRENT MODULE DATA
+    const topPerformers = [...allStudentScores]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
+    const atRiskStudents = [...allStudentScores]
+        .filter(s => Number(s.score) < 40)
+        .sort((a, b) => a.score - b.score);
+
+    const avgScore = allStudentScores.reduce((sum, s) => sum + Number(s.score), 0) / allStudentScores.length;
+
+    const modal = createDrillDownModal(`${currentModuleCode} - Performance Deep Dive`, `
+        <div class="alert alert-primary mb-3">
+            <strong>Module: ${currentModuleCode}</strong> | 
+            Class Average: ${avgScore.toFixed(1)}% | 
+            Total Students: ${allStudentScores.length}
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card border-success h-100">
+                    <div class="card-header bg-success text-white">
+                        <i class="bi bi-trophy me-2"></i>
+                        <strong>Top 10 Performers in ${currentModuleCode}</strong>
+                        <small class="d-block mt-1">Learn from their success patterns</small>
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <div class="list-group list-group-flush">
+                            ${topPerformers.map((s, idx) => `
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-success me-2">#${idx + 1}</span>
+                                        <strong>${s.id_student}</strong>
+                                    </div>
+                                    <span class="badge bg-success rounded-pill">${s.score}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-danger h-100">
+                    <div class="card-header bg-danger text-white">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>At-Risk Students (${atRiskStudents.length})</strong>
+                        <small class="d-block mt-1">Require immediate intervention</small>
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        ${atRiskStudents.length > 0 ? `
+                            <div class="list-group list-group-flush">
+                                ${atRiskStudents.map(s => {
+        const critical = Number(s.score) < 30;
+        return `
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>${s.id_student}</strong>
+                                            ${critical ? '<span class="badge bg-danger ms-2">CRITICAL</span>' : ''}
+                                        </div>
+                                        <span class="badge bg-danger rounded-pill">${s.score}%</span>
+                                    </div>
+                                `;
+    }).join('')}
+                            </div>
+                            <div class="alert alert-warning mt-3 mb-0">
+                                <i class="bi bi-lightbulb me-2"></i>
+                                <strong>Recommended Actions for ${currentModuleCode}:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Schedule 1-on-1 consultations</li>
+                                    <li>Provide supplementary materials</li>
+                                    <li>Enable peer mentoring programs</li>
+                                </ul>
+                            </div>
+                        ` : `
+                            <div class="alert alert-success mb-0">
+                                <i class="bi bi-check-circle me-2"></i>
+                                No students at risk in ${currentModuleCode}! Excellent class performance.
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3 mb-0">
+            <i class="bi bi-graph-up me-2"></i>
+            <strong>${currentModuleCode} Statistics:</strong>
+            ${topPerformers.length} top performers | 
+            ${atRiskStudents.length} need support | 
+            ${((atRiskStudents.length / allStudentScores.length) * 100).toFixed(0)}% at risk
+        </div>
+    `);
+
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+function drillDownTopPerformers() {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    // USE ONLY CURRENT MODULE DATA
+    const highPerformers = [...allStudentScores]
+        .filter(s => Number(s.score) >= 70)
+        .sort((a, b) => b.score - a.score);
+
+    const modal = createDrillDownModal(`${currentModuleCode} - High Performers (${highPerformers.length} students)`, `
+        <div class="alert alert-primary mb-3">
+            <strong>Module: ${currentModuleCode}</strong> | 
+            High Performers (70%+): ${highPerformers.length} out of ${allStudentScores.length} students
+        </div>
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-stars me-2"></i>
+                <strong>Students Scoring 70% and Above in ${currentModuleCode}</strong>
+                <small class="d-block mt-1">Potential peer mentors and teaching assistants</small>
+            </div>
+            <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                ${highPerformers.length > 0 ? `
+                    <div class="row g-2">
+                        ${highPerformers.map(s => {
+        const tier = Number(s.score) >= 90 ? 'gold' :
+            Number(s.score) >= 80 ? 'silver' : 'bronze';
+        const color = tier === 'gold' ? 'warning' :
+            tier === 'silver' ? 'secondary' : 'info';
+        const icon = tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉';
+        return `
+                            <div class="col-md-6">
+                                <div class="card border-${color} mb-2">
+                                    <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span>${icon}</span>
+                                            <i class="bi bi-award text-${color} me-2"></i>
+                                            <strong>${s.id_student}</strong>
+                                        </div>
+                                        <span class="badge bg-${color}">${s.score}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+    }).join('')}
+                    </div>
+                    <div class="alert alert-success mt-3 mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Engagement Ideas for ${currentModuleCode}:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Invite top students to mentor struggling peers</li>
+                            <li>Feature their work as exemplars</li>
+                            <li>Offer advanced enrichment activities</li>
+                        </ul>
+                    </div>
+                ` : `
+                    <div class="alert alert-warning mb-0">
+                        No students currently scoring above 70% in ${currentModuleCode}. Consider reviewing assessment difficulty.
+                    </div>
+                `}
+            </div>
+        </div>
+    `);
+
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+// ============================================
+// EXPORT FUNCTIONS
 // ============================================
 function exportModuleToExcel() {
     if (!currentModuleCode) {
         alert('Please select a module first');
         return;
     }
-
     const data = {
         module: currentModuleCode,
         totalStudents: document.getElementById("totalStudents")?.textContent || 0,
@@ -1976,28 +2030,22 @@ function exportModuleToExcel() {
     });
 
     downloadCSV(csv, `${currentModuleCode}_Report_${Date.now()}.csv`);
-    showToast('Module report exported successfully!', 'success');
 }
-
 function exportAttendanceReport() {
     if (!currentModuleCode) {
         alert('Please select a module first');
         return;
     }
-
     let csv = `Attendance Report - ${currentModuleCode}\n\n`;
     csv += `Generated: ${new Date().toLocaleString()}\n\n`;
     csv += `Student ID,Status,Last Active\n`;
     csv += `Sample attendance data - integrate with your VLE logs\n`;
 
     downloadCSV(csv, `${currentModuleCode}_Attendance_${Date.now()}.csv`);
-    showToast('Attendance report exported!', 'success');
 }
-
 function viewTeachingLog() {
     const logContainer = document.getElementById("teachingLog");
     if (!logContainer) return;
-
     const isVisible = logContainer.style.display !== 'none';
     logContainer.style.display = isVisible ? 'none' : 'block';
 
@@ -2005,36 +2053,34 @@ function viewTeachingLog() {
         const tbody = document.getElementById("teachingLogTable");
         if (tbody) {
             tbody.innerHTML = `
-                <tr>
-                    <td>2024-11-01</td>
-                    <td><span class="badge bg-primary">Uploaded Materials</span></td>
-                    <td>Week 5 lecture notes for ${currentModuleCode}</td>
-                </tr>
-                <tr>
-                    <td>2024-11-03</td>
-                    <td><span class="badge bg-success">Graded Assessment</span></td>
-                    <td>TMA 2 - ${currentRiskStudents.length} students</td>
-                </tr>
-                <tr>
-                    <td>2024-11-05</td>
-                    <td><span class="badge bg-info">Updated Content</span></td>
-                    <td>Added practice problems</td>
-                </tr>
-                <tr>
-                    <td>2024-11-07</td>
-                    <td><span class="badge bg-warning">Sent Notification</span></td>
-                    <td>Reminder for upcoming deadline</td>
-                </tr>
-            `;
+            <tr>
+                <td>2024-11-01</td>
+                <td><span class="badge bg-primary">Uploaded Materials</span></td>
+                <td>Week 5 lecture notes for ${currentModuleCode}</td>
+            </tr>
+            <tr>
+                <td>2024-11-03</td>
+                <td><span class="badge bg-success">Graded Assessment</span></td>
+                <td>TMA 2 - ${currentRiskStudents.length} students</td>
+            </tr>
+            <tr>
+                <td>2024-11-05</td>
+                <td><span class="badge bg-info">Updated Content</span></td>
+                <td>Added practice problems</td>
+            </tr>
+            <tr>
+                <td>2024-11-07</td>
+                <td><span class="badge bg-warning">Sent Notification</span></td>
+                <td>Reminder for upcoming deadline</td>
+            </tr>
+        `;
         }
     }
 }
-
 function viewHighRiskStudents() {
     const riskSection = document.getElementById("risk");
     if (riskSection) {
         riskSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
         riskSection.style.transition = 'background-color 0.3s ease';
         riskSection.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
         setTimeout(() => {
@@ -2042,90 +2088,18 @@ function viewHighRiskStudents() {
         }, 2000);
     }
 }
-
-// ============================================
-// OPTIONAL: More realistic variation with seed
-// ============================================
-function getRealisticSubmissionCount(assessment, currentDay, totalStudents) {
-    const daysUntilDue = assessment.date - currentDay;
-
-    // Use assessment ID as seed for consistent results on refresh
-    const seed = assessment.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const seededRandom = (seed % 100) / 100; // 0-1 based on assessment ID
-
-    let baseRate = 0;
-    let variance = 0;
-
-    if (daysUntilDue > 20) {
-        baseRate = 0.05;  // 5%
-        variance = 0.15;  // ±15%
-    } else if (daysUntilDue > 10) {
-        baseRate = 0.35;  // 35%
-        variance = 0.20;  // ±20%
-    } else if (daysUntilDue > 3) {
-        baseRate = 0.65;  // 65%
-        variance = 0.15;  // ±15%
-    } else if (daysUntilDue > 0) {
-        baseRate = 0.85;  // 85%
-        variance = 0.10;  // ±10%
-    } else if (daysUntilDue >= -3) {
-        baseRate = 0.92;  // 92%
-        variance = 0.05;  // ±5%
-    } else {
-        baseRate = 0.95;  // 95%
-        variance = 0.03;  // ±3%
-    }
-
-    // Apply variance based on seeded random
-    const rate = baseRate + (seededRandom - 0.5) * variance * 2;
-    const finalRate = Math.max(0, Math.min(1, rate)); // Clamp between 0-1
-
-    return Math.floor(totalStudents * finalRate);
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 function generateModuleAssessments(moduleCode, data) {
     const currentDay = data.scores && data.scores.length > 0
         ? Math.max(...data.scores.map(s => Number(s.date_submitted || 0))) + 5
         : 50;
-
-    // Generate 5 assessments spread across the module timeline
     return [
-        {
-            id: `${moduleCode}_TMA1`,
-            type: 'TMA 1',
-            date: Math.max(10, currentDay - 30),
-            weight: 15
-        },
-        {
-            id: `${moduleCode}_TMA2`,
-            type: 'TMA 2',
-            date: currentDay + 10,
-            weight: 15
-        },
-        {
-            id: `${moduleCode}_CMA`,
-            type: 'Computer Marked Assessment',
-            date: currentDay + 30,
-            weight: 20
-        },
-        {
-            id: `${moduleCode}_TMA3`,
-            type: 'TMA 3',
-            date: currentDay + 50,
-            weight: 15
-        },
-        {
-            id: `${moduleCode}_EXAM`,
-            type: 'Final Exam',
-            date: currentDay + 75,
-            weight: 35
-        }
+        { id: `${moduleCode}_TMA1`, type: 'TMA 1', date: Math.max(10, currentDay - 30), weight: 15 },
+        { id: `${moduleCode}_TMA2`, type: 'TMA 2', date: currentDay + 10, weight: 15 },
+        { id: `${moduleCode}_CMA`, type: 'Computer Marked Assessment', date: currentDay + 30, weight: 20 },
+        { id: `${moduleCode}_TMA3`, type: 'TMA 3', date: currentDay + 50, weight: 15 },
+        { id: `${moduleCode}_EXAM`, type: 'Final Exam', date: currentDay + 75, weight: 35 }
     ];
 }
-
 function downloadCSV(csvContent, filename) {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -2138,11 +2112,145 @@ function downloadCSV(csvContent, filename) {
     document.body.removeChild(link);
 }
 
+function filterRiskLevel(level) {
+    if (!currentRiskStudents || currentRiskStudents.length === 0) {
+        return;
+    }
+
+    currentRiskFilter = level;
+
+    ['riskAll', 'riskCritical', 'riskModerate'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.classList.remove('active', 'btn-danger', 'btn-warning');
+            btn.classList.add('btn-light');
+        }
+    });
+
+    const activeBtn = document.getElementById(`risk${level.charAt(0).toUpperCase() + level.slice(1)}`);
+    if (activeBtn) {
+        activeBtn.classList.remove('btn-light');
+        if (level === 'critical') {
+            activeBtn.classList.add('btn-danger', 'active');
+        } else if (level === 'moderate') {
+            activeBtn.classList.add('btn-warning', 'active');
+        } else {
+            activeBtn.classList.add('btn-light', 'active');
+        }
+    }
+
+    if (level === 'critical') {
+        currentFilteredStudents = currentRiskStudents.filter(s => Number(s.score) < 30);
+    } else if (level === 'moderate') {
+        currentFilteredStudents = currentRiskStudents.filter(s => Number(s.score) >= 30 && Number(s.score) < 40);
+    } else {
+        currentFilteredStudents = [...currentRiskStudents];
+    }
+
+    renderRiskTable(currentFilteredStudents, level);
+}
+
+function renderRiskTable(students, filterLevel = 'all') {
+    const interventionMessages = {
+        'critical': '🚨 URGENT: Immediate 1-on-1 consultation required',
+        'moderate': '⚠️ WARNING: Early intervention recommended',
+        'all': 'ℹ️ Students requiring support'
+    };
+
+    const tableHeader = `
+        <tr>
+            <th onclick="sortRiskTable('id')" style="cursor: pointer;">
+                ID <i class="bi bi-arrow-down-up"></i>
+            </th>
+            <th onclick="sortRiskTable('score')" style="cursor: pointer;">
+                Score <i class="bi bi-arrow-down-up"></i>
+            </th>
+            <th>Risk Level</th>
+        </tr>`;
+
+    const tableRows = students.length > 0 ? students
+        .map(s => {
+            const score = Number(s.score);
+            const isCritical = score < 30;
+            const badgeClass = isCritical ? 'bg-danger' : 'bg-warning';
+            const riskLabel = isCritical ? 'CRITICAL' : 'MODERATE';
+
+            return `
+            <tr class="${isCritical ? 'table-danger' : 'table-warning'}">
+                <td><strong>${s.id_student}</strong></td>
+                <td><span class="badge ${badgeClass}">${s.score}%</span></td>
+                <td><span class="badge ${badgeClass}">${riskLabel}</span></td>
+            </tr>
+        `;
+        }).join("") :
+        `<tr><td colspan="3" class="text-center text-muted py-3">
+            <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
+            No students in this category
+        </td></tr>`;
+
+    const message = students.length > 0 ?
+        `<div class="alert ${filterLevel === 'critical' ? 'alert-danger' : 'alert-warning'} mb-2">
+            ${interventionMessages[filterLevel]}
+            <strong class="d-block mt-1">${students.length} student(s) found</strong>
+        </div>` : '';
+
+    document.getElementById("riskTable").innerHTML = message + tableHeader + tableRows;
+}
+
+function sortRiskTable(by) {
+    if (by === "id") {
+        currentFilteredStudents.sort((a, b) =>
+            sortDirection.id === "asc"
+                ? Number(a.id_student) - Number(b.id_student)
+                : Number(b.id_student) - Number(a.id_student)
+        );
+        sortDirection.id = sortDirection.id === "asc" ? "desc" : "asc";
+    } else if (by === "score") {
+        currentFilteredStudents.sort((a, b) =>
+            sortDirection.score === "asc"
+                ? Number(a.score) - Number(b.score)
+                : Number(b.score) - Number(a.score)
+        );
+        sortDirection.score = sortDirection.score === "asc" ? "desc" : "asc";
+    }
+    renderRiskTable(currentFilteredStudents, currentRiskFilter);
+}
+
+function createDrillDownModal(title, content) {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-zoom-in me-2"></i>${title}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    ${content}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    return modal;
+}
+
 // Make functions globally available
+window.drillDownTotalStudents = drillDownTotalStudents;
+window.drillDownClassScore = drillDownClassScore;
+window.drillDownTopPerformers = drillDownTopPerformers;
+window.filterRiskLevel = filterRiskLevel;
+window.sortRiskTable = sortRiskTable;
 window.exportModuleToExcel = exportModuleToExcel;
 window.exportAttendanceReport = exportAttendanceReport;
 window.viewTeachingLog = viewTeachingLog;
 window.viewHighRiskStudents = viewHighRiskStudents;
+window.loadLecturerData = loadLecturerData;
 
 // ============================================
 // ADMIN DASHBOARD - IMPROVED WITH 4C PRINCIPLES
