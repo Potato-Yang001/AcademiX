@@ -247,6 +247,48 @@
             color: #c62828;
         }
 
+        .insight-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .insight-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .insight-card i {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .insight-card h4 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+
+        .highlight-row {
+            animation: highlightPulse 2s ease-in-out;
+        }
+
+        @keyframes highlightPulse {
+
+            0%,
+            100% {
+                background-color: transparent;
+            }
+
+            50% {
+                background-color: rgba(255, 193, 7, 0.2);
+            }
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -260,6 +302,24 @@
                 margin-left: 0;
                 padding: 1rem;
             }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #courseInsightsSection,
+        #capacity,
+        #demand {
+            animation: fadeIn 0.5s ease-in-out;
         }
     </style>
 </head>
@@ -294,6 +354,14 @@
             <a href="#subjects" class="nav-link">
                 <i class="bi bi-book-fill"></i>
                 <span>Subjects Catalog</span>
+            </a>
+            <a href="#capacity" class="nav-link">
+                <i class="bi bi-pie-chart-fill"></i>
+                <span>Capacity Planning</span>
+            </a>
+            <a href="#demand" class="nav-link">
+                <i class="bi bi-graph-up"></i>
+                <span>Demand Analysis</span>
             </a>
             <a href="#demographics" class="nav-link">
                 <i class="bi bi-pie-chart-fill"></i>
@@ -333,10 +401,13 @@
                     </div>
                 </div>
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <div class="summary-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="summary-card"
+                        style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); cursor: pointer;"
+                        onclick="toggleCourseDetails()">
                         <i class="bi bi-book-fill icon"></i>
                         <h3 id="totalCoursesCount">0</h3>
                         <p>Courses Offered</p>
+                        <small style="opacity: 0.8; font-size: 0.85rem;">Click to toggle details →</small>
                     </div>
                 </div>
                 <div class="col-12 col-sm-6 col-lg-3">
@@ -351,6 +422,44 @@
                         <i class="bi bi-trophy-fill icon"></i>
                         <h3 id="passRatePercent">0%</h3>
                         <p>Overall Pass Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clickable Course Insights Cards -->
+        <div class="mb-4" id="courseInsightsSection" style="display: none;">
+            <div class="row g-4">
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="insight-card" onclick="scrollToSection('performance', 'high-withdrawal')">
+                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                        <h4 id="highWithdrawalCoursesCard">0</h4>
+                        <p>High Withdrawal Courses</p>
+                        <small class="text-muted">Click to view details →</small>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="insight-card" onclick="scrollToSection('performance', 'high-engagement')">
+                        <i class="bi bi-graph-up-arrow text-success"></i>
+                        <h4 id="highEngagementCoursesCard">0</h4>
+                        <p>High Engagement Courses</p>
+                        <small class="text-muted">Click to view details →</small>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="insight-card" onclick="scrollToSection('performance', 'at-risk')">
+                        <i class="bi bi-shield-exclamation text-warning"></i>
+                        <h4 id="atRiskCoursesCard">0</h4>
+                        <p>Courses Needing Attention</p>
+                        <small class="text-muted">Click to view details →</small>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="insight-card" onclick="scrollToSection('performance', 'performing-well')">
+                        <i class="bi bi-check-circle-fill text-primary"></i>
+                        <h4 id="performingWellCoursesCard">0</h4>
+                        <p>Performing Well</p>
+                        <small class="text-muted">Click to view details →</small>
                     </div>
                 </div>
             </div>
@@ -474,7 +583,7 @@
             </div>
         </div>
 
-        <!-- Course Performance Table - FIXED -->
+        <!-- Course Performance Table -->
         <div id="performance" class="mb-4">
             <div class="card">
                 <div class="card-header bg-info text-white">
@@ -491,8 +600,8 @@
                                     <th style="width: 13%;">Presentation</th>
                                     <th class="text-end" style="width: 11%;">Students</th>
                                     <th class="text-end" style="width: 11%;">Avg Score</th>
-                                    <th style="width: 20%;">Pass Rate</th>
-                                    <th style="width: 20%;">Withdrawal</th>
+                                    <th style="width: 20%;">Pass / Fail Rate</th>
+                                    <th style="width: 20%;">Withdrawal Rate</th>
                                     <th class="text-center" style="width: 13%;">Status</th>
                                 </tr>
                             </thead>
@@ -511,29 +620,31 @@
                 </div>
             </div>
         </div>
-        <!-- Subjects Catalog - BEAUTIFUL VERSION -->
+
+        <!-- Subjects Catalog - Course Information -->
         <div id="subjects" class="mb-4">
             <div class="card">
-                <div class="card-header bg-secondary text-white">
+                <div class="card-header bg-info text-white">
                     <i class="bi bi-book-fill me-2"></i>
                     Subjects Catalog
-                    <small class="d-block mt-1 opacity-75">Course offerings and enrollment capacity</small>
+                    <small class="d-block mt-1 opacity-75">Course details and basic information</small>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="bg-light">
                                 <tr>
-                                    <th style="width: 20%;">Module</th>
-                                    <th style="width: 20%;">Semester</th>
-                                    <th style="width: 35%;">Enrollment Progress</th>
-                                    <th class="text-center" style="width: 25%;">Demand Status</th>
+                                    <th>Module Code</th>
+                                    <th>Semester</th>
+                                    <th>Duration (Days)</th>
+                                    <th>Total Enrolled</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody id="subjectsTableBody">
                                 <tr>
-                                    <td colspan="4" class="text-center py-4">
-                                        <div class="spinner-border text-secondary" role="status">
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-info" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
                                         <p class="mt-2 text-muted">Loading subjects catalog...</p>
@@ -546,12 +657,93 @@
             </div>
         </div>
 
+        <!-- Capacity Planning - Seat Availability -->
+        <div id="capacity" class="mb-4" style="display: none;">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-pie-chart-fill me-2"></i>
+                    Enrollment Capacity Planning
+                    <small class="d-block mt-1 opacity-75">Seat availability and section planning</small>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Capacity Planning:</strong> Courses at 85%+ capacity may need additional
+                                sections. Max capacity based on classroom size and resources.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Module</th>
+                                    <th>Current Enrolled</th>
+                                    <th>Max Capacity</th>
+                                    <th>Available Seats</th>
+                                    <th>Utilization</th>
+                                    <th>Action Needed</th>
+                                </tr>
+                            </thead>
+                            <tbody id="capacityTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading capacity data...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demand Analysis - Enrollment Trends -->
+        <div id="demand" class="mb-4" style="display: none;">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Demand Analysis & Enrollment Trends
+                    <small class="d-block mt-1 opacity-75">Track course popularity and enrollment patterns</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Module</th>
+                                    <th>Current Enrollment</th>
+                                    <th>Trend</th>
+                                    <th>Demand Level</th>
+                                    <th>Forecast</th>
+                                </tr>
+                            </thead>
+                            <tbody id="demandTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-warning" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading demand analysis...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Demographics -->
         <div id="demographics" class="mb-4">
             <div class="row g-4">
                 <div class="col-12 col-lg-6">
                     <div class="card">
-                        <div class="card-header bg-warning text-dark">
+                        <div class="card-header bg-success text-white">
                             <i class="bi bi-gender-ambiguous me-2"></i>
                             Gender Distribution
                         </div>
@@ -564,7 +756,7 @@
                 </div>
                 <div class="col-12 col-lg-6">
                     <div class="card">
-                        <div class="card-header bg-secondary text-white">
+                        <div class="card-header bg-dark text-white">
                             <i class="bi bi-calendar3 me-2"></i>
                             Age Distribution
                         </div>

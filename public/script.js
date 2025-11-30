@@ -2266,7 +2266,7 @@ let coursesData = [];
 async function loadCoursesData() {
     try {
         console.log('📚 Loading courses.csv...');
-        const response = await fetch('courses.csv'); // Try './courses.csv' or '/courses.csv' if needed
+        const response = await fetch('courses.csv');
 
         if (!response.ok) {
             console.error('❌ Failed to fetch courses.csv:', response.status, response.statusText);
@@ -2285,14 +2285,13 @@ async function loadCoursesData() {
             .filter(line => line.trim())
             .map(line => {
                 const values = line.split(',').map(v => v.trim());
-                // Handle both 'length' and 'module_presentation_length' column names
                 return {
                     code_module: values[0],
                     code_presentation: values[1],
-                    length: values[2] || values[3] // Some CSVs might have extra columns
+                    length: values[2] // ✅ This is the duration column
                 };
             })
-            .filter(course => course.code_module && course.code_presentation && course.length); // Remove empty/invalid rows
+            .filter(course => course.code_module && course.code_presentation && course.length);
 
         console.log(`✅ Loaded ${coursesData.length} courses`);
         console.log('📊 Sample course:', coursesData[0]);
@@ -2303,11 +2302,74 @@ async function loadCoursesData() {
     }
 }
 
+function updateInsightCards(courseData) {
+    console.log('🔍 === STARTING INSIGHT CARD ANALYSIS ===');
+    console.log('Total courses received:', courseData.length);
+
+    const highWithdrawalList = [];
+    const highEngagementList = [];
+    const atRiskList = [];
+    const othersList = [];
+
+    courseData.forEach(c => {
+        if (c.withdrawalRate >= 30) {
+            highWithdrawalList.push(c);
+            console.log(`  🚨 HIGH WITHDRAWAL: ${c.module}-${c.presentation} = ${c.withdrawalRate}%`);
+        }
+        else if (c.passRate >= 70 && c.withdrawalRate < 20 && c.avgScore >= 70) {
+            highEngagementList.push(c);
+            console.log(`  🌟 HIGH ENGAGEMENT: ${c.module}-${c.presentation} - Pass:${c.passRate}%, Withdrawal:${c.withdrawalRate}%, Score:${c.avgScore}`);
+        }
+        else if (c.withdrawalRate < 30 && (c.passRate < 50 || c.avgScore < 55 || c.withdrawalRate >= 20)) {
+            atRiskList.push(c);
+            console.log(`  ⚠️ NEEDS ATTENTION: ${c.module}-${c.presentation} - Pass:${c.passRate}%, Score:${c.avgScore}, Withdrawal:${c.withdrawalRate}%`);
+        }
+        else {
+            othersList.push(c);
+            console.log(`  ✅ PERFORMING WELL: ${c.module}-${c.presentation} - Pass:${c.passRate}%, Score:${c.avgScore}, Withdrawal:${c.withdrawalRate}%`);
+        }
+    });
+
+    const highWithdrawalCount = highWithdrawalList.length;
+    const highEngagementCount = highEngagementList.length;
+    const atRiskCount = atRiskList.length;
+    const othersCount = othersList.length;
+
+    console.log(`📊 === FINAL COUNTS ===`);
+    console.log(`   High Withdrawal: ${highWithdrawalCount}`);
+    console.log(`   High Engagement: ${highEngagementCount}`);
+    console.log(`   Needs Attention: ${atRiskCount}`);
+    console.log(`   Performing Well: ${othersCount}`);
+    console.log(`   TOTAL: ${courseData.length}`);
+
+    const calculatedTotal = highWithdrawalCount + highEngagementCount + atRiskCount + othersCount;
+    if (calculatedTotal !== courseData.length) {
+        console.error(`❌ MISMATCH! Calculated: ${calculatedTotal}, Expected: ${courseData.length}`);
+    }
+
+    // Update all 4 cards
+    const highWithdrawalCard = document.getElementById('highWithdrawalCoursesCard');
+    const highEngagementCard = document.getElementById('highEngagementCoursesCard');
+    const atRiskCard = document.getElementById('atRiskCoursesCard');
+    const performingWellCard = document.getElementById('performingWellCoursesCard');
+
+    if (highWithdrawalCard) highWithdrawalCard.textContent = highWithdrawalCount;
+    if (highEngagementCard) highEngagementCard.textContent = highEngagementCount;
+    if (atRiskCard) atRiskCard.textContent = atRiskCount;
+    if (performingWellCard) performingWellCard.textContent = othersCount;
+
+    console.log('🔍 === INSIGHT CARD ANALYSIS COMPLETE ===');
+}
+
 async function loadAdminData() {
     try {
-        // Load courses data FIRST and INDEPENDENTLY
-        await loadCoursesData();
+        // ✅ CRITICAL: Load courses data FIRST and WAIT for it
+        coursesData = await loadCoursesData();
         console.log('📊 Courses loaded:', coursesData.length, 'courses');
+
+        if (coursesData.length === 0) {
+            console.error('❌ CRITICAL: No courses data loaded! Check courses.csv path');
+        }
 
         const res = await fetch("/api/admin");
         const data = await res.json();
@@ -2322,7 +2384,6 @@ async function loadAdminData() {
             allSubjectsData = data.subjects || [];
         }
 
-        // Calculate total students from outcomes (NOT limiting to 100)
         const outcomes = data.outcomes || {};
         const totalStudents = Object.values(outcomes).reduce((a, b) => a + b, 0);
 
@@ -2332,22 +2393,89 @@ async function loadAdminData() {
             allStudentsData = data.students;
         }
 
-        // Calculate at-risk metrics
         const atRiskData = calculateAtRiskMetrics(data, allStudentsData);
 
-        // Render all sections in priority order
+        // ✅ GENERATE courseData ONCE with CONSISTENT random values
+        const enrolments = data.enrolments || {};
+        const courseData = Object.entries(enrolments).map(([course, count]) => {
+            let parts = course.includes('_') ? course.split('_') : course.split('-');
+            const module = parts[0] || 'Unknown';
+            const presentation = parts[1] || 'Unknown';
+
+            // Generate CONSISTENT percentages that add up to 100%
+            const withdrawalRate = Math.floor(Math.random() * 36) + 5; // 5-40%
+            const remaining = 100 - withdrawalRate;
+            const passOfRemaining = Math.floor(Math.random() * 46) + 40; // 40-85%
+            let passRate = Math.floor((remaining * passOfRemaining) / 100);
+            let failRate = remaining - passRate;
+
+            // Ensure they add up to exactly 100%
+            const total = passRate + failRate + withdrawalRate;
+            if (total !== 100) {
+                passRate += (100 - total); // Adjust pass rate to make it exactly 100%
+            }
+
+            const avgScore = Math.floor(40 + (passRate * 0.8));
+
+            return {
+                module,
+                presentation,
+                enrollments: count,
+                avgScore,
+                passRate: parseFloat(passRate.toFixed(1)),
+                failRate: parseFloat(failRate.toFixed(1)),
+                withdrawalRate: parseFloat(withdrawalRate.toFixed(1))
+            };
+        });
+
+        // ✅ Store courseData globally so it's consistent everywhere
+        window.globalCourseData = courseData;
+
+        // Render all sections with THE SAME courseData
         renderAdminSummary(data);
         renderAtRiskAlerts(atRiskData);
+        updateInsightCards(courseData); // ✅ Use the same courseData
         renderEnrolmentChart(data.enrolments);
         renderOutcomeChart(data.outcomes);
-        renderCoursePerformanceTable(data);
+        renderCoursePerformanceTable(data, courseData); // ✅ Pass the same courseData
+        renderCapacityTable(allSubjectsData);
         renderSubjectsTable(allSubjectsData);
+        renderDemandTable(allSubjectsData);
         renderGenderChart(data.gender);
         renderAgeChart(data.age);
 
         setupAdminFilters();
     } catch (error) {
         console.error("Error loading admin data:", error);
+    }
+}
+
+// Toggle course details visibility
+function toggleCourseDetails() {
+    const insightsSection = document.getElementById('courseInsightsSection');
+    const capacitySection = document.getElementById('capacity');
+    const demandSection = document.getElementById('demand');
+
+    // Toggle visibility
+    if (insightsSection.style.display === 'none') {
+        // Show sections with smooth animation
+        insightsSection.style.display = 'block';
+        capacitySection.style.display = 'block';
+        demandSection.style.display = 'block';
+
+        // Smooth scroll to insights
+        setTimeout(() => {
+            insightsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+
+        console.log('✅ Course details sections shown');
+    } else {
+        // Hide sections
+        insightsSection.style.display = 'none';
+        capacitySection.style.display = 'none';
+        demandSection.style.display = 'none';
+
+        console.log('❌ Course details sections hidden');
     }
 }
 
@@ -2416,49 +2544,48 @@ function renderAtRiskAlerts(atRiskData) {
 // ============================================
 // ENHANCED COURSE PERFORMANCE TABLE
 // ============================================
-function renderCoursePerformanceTable(data) {
+
+function renderCoursePerformanceTable(data, courseData) {
     const tbody = document.getElementById('performanceTableBody');
     if (!tbody) return;
 
-    const enrolments = data.enrolments || {};
-    const outcomes = data.outcomes || {};
-    const totalStudents = Object.values(outcomes).reduce((a, b) => a + b, 0);
+    // ✅ FIXED: Use EXACT SAME categorization logic with else-if
+    const categorizeAndSort = (courses) => {
+        return courses.map(course => {
+            let category, priority;
 
-    const courseData = Object.entries(enrolments).map(([course, count]) => {
-        let parts = course.includes('_') ? course.split('_') : course.split('-');
-        const module = parts[0] || 'Unknown';
-        const presentation = parts[1] || 'Unknown';
+            // Category 1: High Withdrawal (≥30%) - HIGHEST PRIORITY
+            if (course.withdrawalRate >= 30) {
+                category = 'high-withdrawal';
+                priority = 1;
+            }
+            // Category 2: High Engagement - Pass ≥70%, Withdrawal <20%, Score ≥70
+            else if (course.passRate >= 70 && course.withdrawalRate < 20 && course.avgScore >= 70) {
+                category = 'high-engagement';
+                priority = 3;
+            }
+            // Category 3: Needs Attention - Withdrawal <30% BUT (Pass <50% OR Score <55 OR Withdrawal ≥20%)
+            else if (course.withdrawalRate < 30 && (course.passRate < 50 || course.avgScore < 55 || course.withdrawalRate >= 20)) {
+                category = 'at-risk';
+                priority = 2;
+            }
+            // Category 4: Others (Performing Well)
+            else {
+                category = 'performing-well';
+                priority = 4;
+            }
 
-        // Generate realistic percentages that add up to 100%
-        // First, determine withdrawal rate (5-45%)
-        const withdrawalRate = Math.floor(Math.random() * 41) + 5; // 5-45%
+            return { ...course, category, priority };
+        }).sort((a, b) => {
+            // Sort by priority first, then by withdrawal rate within same category
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return b.withdrawalRate - a.withdrawalRate;
+        });
+    };
 
-        // Remaining percentage after withdrawal
-        const remaining = 100 - withdrawalRate;
+    const sortedCourseData = categorizeAndSort(courseData);
 
-        // Split remaining between pass and fail (pass should be 30-80% of remaining)
-        const passPercentage = Math.floor(Math.random() * 51) + 30; // 30-80%
-        const passRate = Math.floor((remaining * passPercentage) / 100);
-        const failRate = remaining - passRate;
-
-        // Average score correlates with pass rate (higher pass = higher score)
-        const avgScore = Math.floor(40 + (passRate * 0.6)); // Score 40-90 based on pass rate
-
-        return {
-            module,
-            presentation,
-            enrollments: count,
-            avgScore,
-            passRate: parseFloat(passRate.toFixed(1)),
-            failRate: parseFloat(failRate.toFixed(1)),
-            withdrawalRate: parseFloat(withdrawalRate.toFixed(1))
-        };
-    });
-
-    // Sort by withdrawal rate (highest risk first)
-    courseData.sort((a, b) => b.withdrawalRate - a.withdrawalRate);
-
-    const html = courseData.map(course => {
+    const html = sortedCourseData.map(course => {
         const scoreClass = course.avgScore >= 70 ? 'success' :
             course.avgScore >= 60 ? 'warning' : 'danger';
         const passRateClass = course.passRate >= 70 ? 'success' :
@@ -2466,11 +2593,18 @@ function renderCoursePerformanceTable(data) {
         const withdrawalRateClass = course.withdrawalRate >= 30 ? 'danger' :
             course.withdrawalRate >= 20 ? 'warning' : 'success';
 
-        const statusBadge = course.withdrawalRate >= 30 ?
-            '<span class="status-badge status-risk fs-6">⚠️ At Risk</span>' :
-            course.passRate >= 70 ?
-                '<span class="status-badge status-excellent fs-6">✅ Excellent</span>' :
-                '<span class="status-badge status-monitor fs-6">👁️ Monitor</span>';
+        // ✅ EXACT SAME categorization as updateInsightCards
+        let statusBadge;
+        if (course.category === 'high-withdrawal') {
+            statusBadge = '<span class="status-badge status-risk fs-6" data-category="high-withdrawal">🚨 High Withdrawal</span>';
+        } else if (course.category === 'high-engagement') {
+            statusBadge = '<span class="status-badge status-excellent fs-6" data-category="high-engagement">🌟 High Engagement</span>';
+        } else if (course.category === 'at-risk') {
+            statusBadge = '<span class="status-badge status-monitor fs-6" data-category="at-risk">⚠️ Needs Attention</span>';
+        } else {
+            // Category: performing-well (Others)
+            statusBadge = '<span class="status-badge fs-6" data-category="performing-well" style="background: #e3f2fd; color: #1976d2;">✅ Performing Well</span>';
+        }
 
         return `
             <tr>
@@ -2484,21 +2618,20 @@ function renderCoursePerformanceTable(data) {
                     <div class="d-flex align-items-center gap-2">
                         <div class="flex-grow-1">
                             <div class="progress" style="height: 8px;">
-                                <div class="progress-bar bg-${passRateClass}" 
-                                     style="width: ${course.passRate}%">
-                                </div>
+                                <div class="progress-bar bg-${passRateClass}" style="width: ${course.passRate}%"></div>
                             </div>
                         </div>
-                        <strong class="text-${passRateClass}" style="min-width: 48px; text-align: right;">${course.passRate}%</strong>
+                        <strong class="text-${passRateClass}" style="min-width: 55px; text-align: right;">${course.passRate}%</strong>
                     </div>
+                    <small class="text-muted" style="font-size: 0.7rem;">
+                        Pass: ${course.passRate}% | Fail: ${course.failRate}%
+                    </small>
                 </td>
                 <td style="width: 20%;">
                     <div class="d-flex align-items-center gap-2">
                         <div class="flex-grow-1">
                             <div class="progress" style="height: 8px;">
-                                <div class="progress-bar bg-${withdrawalRateClass}" 
-                                     style="width: ${course.withdrawalRate}%">
-                                </div>
+                                <div class="progress-bar bg-${withdrawalRateClass}" style="width: ${course.withdrawalRate}%"></div>
                             </div>
                         </div>
                         <strong class="text-${withdrawalRateClass}" style="min-width: 48px; text-align: right;">${course.withdrawalRate}%</strong>
@@ -2507,6 +2640,109 @@ function renderCoursePerformanceTable(data) {
                 <td class="text-center" style="width: 13%;">${statusBadge}</td>
             </tr>
         `;
+    }).join('');
+
+    tbody.innerHTML = html;
+}
+
+// Scroll to section with filter highlighting
+function scrollToSection(sectionId, filter) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Apply filter highlighting after scroll
+        setTimeout(() => {
+            highlightFilteredRows(filter);
+        }, 800);
+    }
+}
+
+function highlightFilteredRows(filter) {
+    const tbody = document.getElementById('performanceTableBody');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => {
+        row.classList.remove('highlight-row');
+
+        if (!row.cells || row.cells.length < 7) return;
+
+        const statusBadge = row.cells[6].querySelector('[data-category]');
+        if (!statusBadge) return;
+
+        const category = statusBadge.getAttribute('data-category');
+
+        if (filter === 'high-withdrawal' && category === 'high-withdrawal') {
+            row.classList.add('highlight-row');
+        } else if (filter === 'high-engagement' && category === 'high-engagement') {
+            row.classList.add('highlight-row');
+        } else if (filter === 'at-risk' && category === 'at-risk') {
+            row.classList.add('highlight-row');
+        } else if (filter === 'performing-well' && category === 'performing-well') {
+            row.classList.add('highlight-row');
+        }
+    });
+}
+
+// Render capacity analysis table
+function renderCapacityTable(subjects) {
+    const tbody = document.getElementById('capacityTableBody');
+    if (!tbody) return;
+
+    const html = subjects.map(subject => {
+        // REAL CAPACITY LOGIC: Based on typical classroom/resource limits
+        // Small courses: 50 students per section
+        // Medium courses: 100 students per section  
+        // Large courses: 200 students per section
+
+        let maxCapacity;
+        if (subject.enrolments <= 500) {
+            // Small course: 50 students/section, allow up to 10 sections = 500 max
+            maxCapacity = Math.ceil(subject.enrolments / 50) * 50 + 50; // Current sections + 1 buffer section
+        } else if (subject.enrolments <= 1500) {
+            // Medium course: 100 students/section
+            maxCapacity = Math.ceil(subject.enrolments / 100) * 100 + 100;
+        } else {
+            // Large course: 200 students/section
+            maxCapacity = Math.ceil(subject.enrolments / 200) * 200 + 200;
+        }
+
+        const availableSeats = maxCapacity - subject.enrolments;
+        const utilizationPercent = ((subject.enrolments / maxCapacity) * 100).toFixed(0);
+
+        const needsAction = utilizationPercent >= 85;
+        const actionBadge = needsAction
+            ? '<span class="badge bg-danger fs-6 px-3 py-2">⚠️ Open New Section</span>'
+            : utilizationPercent >= 70
+                ? '<span class="badge bg-warning fs-6 px-3 py-2">📊 Monitor</span>'
+                : '<span class="badge bg-success fs-6 px-3 py-2">✅ Sufficient</span>';
+
+        const utilizationClass = utilizationPercent >= 85 ? 'danger' :
+            utilizationPercent >= 70 ? 'warning' : 'success';
+
+        return `
+                <tr class="${needsAction ? 'table-warning' : ''}">
+                    <td>
+                        <strong class="text-primary">${subject.code_module}</strong>
+                        <br>
+                        <small class="text-muted">${subject.code_presentation}</small>
+                    </td>
+                    <td><strong class="fs-6">${subject.enrolments.toLocaleString()}</strong></td>
+                    <td><strong class="fs-6">${maxCapacity.toLocaleString()}</strong></td>
+                    <td class="text-${utilizationClass}">
+                        <strong class="fs-6">${availableSeats.toLocaleString()}</strong> seats
+                    </td>
+                    <td style="width: 200px;">
+                        <div class="progress" style="height: 24px;">
+                            <div class="progress-bar bg-${utilizationClass}" style="width: ${utilizationPercent}%">
+                                <strong>${utilizationPercent}%</strong>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${actionBadge}</td>
+                </tr>
+            `;
     }).join('');
 
     tbody.innerHTML = html;
@@ -2521,74 +2757,113 @@ function renderSubjectsTable(subjects) {
 
     if (!subjects || subjects.length === 0) {
         tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted py-4">
-                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                    No subjects data available
-                </td>
-            </tr>`;
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        No subjects data available
+                    </td>
+                </tr>`;
         return;
     }
 
-    // Sort by module code first
+    // Sort by module code
     subjects.sort((a, b) => a.code_module.localeCompare(b.code_module));
 
     const html = subjects.map(subject => {
-        // Demand status based on enrollments
-        const demandClass = subject.enrolments > 1500 ? 'success' :
-            subject.enrolments > 1000 ? 'info' :
-                subject.enrolments > 500 ? 'warning' : 'danger';
-        const demandText = subject.enrolments > 1500 ? '🔥 High Demand' :
-            subject.enrolments > 1000 ? '📈 Popular' :
-                subject.enrolments > 500 ? '📊 Moderate' : '📉 Low Demand';
-
-        // Semester indicator
         const semester = subject.code_presentation.includes('B') ?
-            '<span class="badge bg-primary fs-6 px-3 py-2">📅 Feb Start</span>' :
-            '<span class="badge bg-warning text-dark fs-6 px-3 py-2">📅 Oct Start</span>';
+            '<span class="badge bg-primary px-3 py-2">📅 February</span>' :
+            '<span class="badge bg-warning text-dark px-3 py-2">📅 October</span>';
 
-        // Capacity with varying buffer (10-30% above current enrollment)
-        const bufferPercent = Math.floor(Math.random() * 21) + 10; // 10-30%
-        const capacity = Math.ceil(subject.enrolments * (1 + bufferPercent / 100));
+        // ✅ Duration from courses.csv (stored as 'length')
+        const duration = subject.module_presentation_length || subject.length || 'N/A';
+        const durationDisplay = duration !== 'N/A' ? `${duration} days` : 'N/A';
 
-        // Calculate capacity percentage
-        const capacityPercent = ((subject.enrolments / capacity) * 100).toFixed(0);
-        // Adjusted to show red at 85%+, yellow at 70%+, green below 70%
-        const capacityBarClass = capacityPercent >= 85 ? 'bg-danger' :
-            capacityPercent >= 70 ? 'bg-warning' : 'bg-success';
+        // Status based on enrollment size
+        let statusBadge;
+        if (subject.enrolments > 1500) {
+            statusBadge = '<span class="badge bg-success px-3 py-2">✅ Active - High</span>';
+        } else if (subject.enrolments > 800) {
+            statusBadge = '<span class="badge bg-info px-3 py-2">✅ Active - Normal</span>';
+        } else if (subject.enrolments > 300) {
+            statusBadge = '<span class="badge bg-warning px-3 py-2">⚠️ Active - Low</span>';
+        } else {
+            statusBadge = '<span class="badge bg-danger px-3 py-2">⚠️ Under Review</span>';
+        }
 
         return `
-            <tr>
-                <td style="width: 20%;">
-                    <strong class="text-primary">${subject.code_module}</strong>
-                    <small class="text-muted d-block">${subject.code_presentation}</small>
-                </td>
-                <td style="width: 20%;">${semester}</td>
-                <td style="width: 35%;">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between mb-1">
-                                <small class="text-muted">Enrolled:</small>
-                                <strong>${subject.enrolments || 0}</strong>
-                            </div>
-                            <div class="progress" style="height: 8px;">
-                                <div class="progress-bar ${capacityBarClass}" 
-                                     role="progressbar" 
-                                     style="width: ${capacityPercent}%"
-                                     aria-valuenow="${capacityPercent}" 
-                                     aria-valuemin="0" 
-                                     aria-valuemax="100">
-                                </div>
-                            </div>
-                            <small class="text-muted">${capacityPercent}% of ${capacity} capacity</small>
-                        </div>
-                    </div>
-                </td>
-                <td class="text-center" style="width: 25%;">
-                    <span class="badge bg-${demandClass} px-3 py-2 fs-6">${demandText}</span>
-                </td>
-            </tr>
-        `;
+                <tr>
+                    <td>
+                        <strong class="text-primary fs-6">${subject.code_module}</strong>
+                        <br>
+                        <small class="text-muted">${subject.code_presentation}</small>
+                    </td>
+                    <td>${semester}</td>
+                    <td><strong>${durationDisplay}</strong></td>
+                    <td><strong class="fs-6">${subject.enrolments.toLocaleString()}</strong> students</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+    }).join('');
+
+    tbody.innerHTML = html;
+}
+
+// Render demand analysis table (separate from subjects catalog)
+function renderDemandTable(subjects) {
+    const tbody = document.getElementById("demandTableBody");
+    if (!tbody) return;
+
+    if (!subjects || subjects.length === 0) {
+        tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        No demand data available
+                    </td>
+                </tr>`;
+        return;
+    }
+
+    const html = subjects.map(subject => {
+        // Simulate enrollment trend (in real system, compare with previous semester)
+        const trendRandom = Math.random();
+        let trendBadge, trendIcon, forecast, demandLevel;
+
+        if (trendRandom > 0.6) {
+            // Growing (40% chance)
+            const growthPercent = Math.floor(Math.random() * 20) + 5; // 5-25% growth
+            trendBadge = `<span class="badge bg-success px-3 py-2">📈 Growing +${growthPercent}%</span>`;
+            trendIcon = '📈';
+            forecast = `Expected ${Math.floor(subject.enrolments * (1 + growthPercent / 100)).toLocaleString()} next semester`;
+            demandLevel = '<span class="badge bg-success fs-6 px-3 py-2">🔥 High Demand</span>';
+        } else if (trendRandom > 0.3) {
+            // Stable (30% chance)
+            trendBadge = '<span class="badge bg-info px-3 py-2">➡️ Stable ±3%</span>';
+            trendIcon = '➡️';
+            forecast = `Expected ${subject.enrolments.toLocaleString()} next semester`;
+            demandLevel = '<span class="badge bg-info fs-6 px-3 py-2">📊 Steady</span>';
+        } else {
+            // Declining (30% chance)
+            const declinePercent = Math.floor(Math.random() * 15) + 5; // 5-20% decline
+            trendBadge = `<span class="badge bg-danger px-3 py-2">📉 Declining -${declinePercent}%</span>`;
+            trendIcon = '📉';
+            forecast = `Expected ${Math.floor(subject.enrolments * (1 - declinePercent / 100)).toLocaleString()} next semester`;
+            demandLevel = '<span class="badge bg-warning text-dark fs-6 px-3 py-2">⚠️ Declining</span>';
+        }
+
+        return `
+                <tr>
+                    <td>
+                        <strong class="text-primary fs-6">${subject.code_module}</strong>
+                        <br>
+                        <small class="text-muted">${subject.code_presentation}</small>
+                    </td>
+                    <td><strong class="fs-6">${subject.enrolments.toLocaleString()}</strong> students</td>
+                    <td>${trendBadge}</td>
+                    <td>${demandLevel}</td>
+                    <td><small class="text-muted">${forecast}</small></td>
+                </tr>
+            `;
     }).join('');
 
     tbody.innerHTML = html;
@@ -2602,7 +2877,7 @@ function generateSubjectsFromEnrolments(enrolments, courses = []) {
     const courseLookup = {};
     courses.forEach(course => {
         const key = `${course.code_module}_${course.code_presentation}`;
-        courseLookup[key] = course.length;
+        courseLookup[key] = course.length; // ✅ Use 'length' from courses.csv
     });
 
     console.log('🗺️ Course lookup keys:', Object.keys(courseLookup).slice(0, 5));
@@ -2624,7 +2899,8 @@ function generateSubjectsFromEnrolments(enrolments, courses = []) {
         return {
             code_module: module,
             code_presentation: presentation,
-            module_presentation_length: duration,
+            length: duration, // ✅ Store as 'length' to match courses.csv
+            module_presentation_length: duration, // Keep for backward compatibility
             enrolments: count
         };
     });
@@ -2659,12 +2935,12 @@ function renderStudentsTable(students, page = 1) {
 
     if (!students || students.length === 0) {
         tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center text-muted py-4">
-                    <i class="bi bi-person-x fs-1 d-block mb-2"></i>
-                    No students data available
-                </td>
-            </tr>`;
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-person-x fs-1 d-block mb-2"></i>
+                        No students data available
+                    </td>
+                </tr>`;
         return;
     }
 
@@ -2686,14 +2962,14 @@ function renderStudentsTable(students, page = 1) {
             '<span class="status-badge bg-warning">Withdrawn</span>';
 
         return `
-            <tr>
-                <td><strong>${student.id_student}</strong></td>
-                <td>${student.modules_enrolled || 'N/A'}</td>
-                <td>${student.studied_credits || 0}</td>
-                <td><span class="badge bg-${statusClass}">${student.final_result}</span></td>
-                <td>${statusBadge}</td>
-            </tr>
-        `;
+                <tr>
+                    <td><strong>${student.id_student}</strong></td>
+                    <td>${student.modules_enrolled || 'N/A'}</td>
+                    <td>${student.studied_credits || 0}</td>
+                    <td><span class="badge bg-${statusClass}">${student.final_result}</span></td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
     }).join('');
 
     tbody.innerHTML = html;
@@ -3001,15 +3277,15 @@ function showToast(message, type = 'info') {
 
     const toastId = 'toast-' + Date.now();
     const toastHTML = `
-        <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
+            <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
-        </div>
-    `;
+        `;
 
     toastContainer.insertAdjacentHTML('beforeend', toastHTML);
     const toastElement = document.getElementById(toastId);
