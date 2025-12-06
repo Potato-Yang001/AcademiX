@@ -1260,9 +1260,13 @@ function renderLecturerSummary(data) {
     const totalStudents = Array.isArray(data.students) ? data.students.length : data.students;
     const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
+    // Update Total Students
     document.getElementById("totalStudents").innerText = totalStudents;
+
+    // Update Average Score
     document.getElementById("avgClassScore").innerText = avgScore.toFixed(2) + "%";
 
+    // Update Performance Badge
     const badge = document.querySelector("#avgClassScore + .badge");
     if (badge) {
         if (avgScore >= 80) {
@@ -1280,17 +1284,52 @@ function renderLecturerSummary(data) {
         }
     }
 
-    const topStudents = [...data.scores]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
+    // NEW: Update At-Risk Students Card
+    const atRiskStudents = scores.filter(s => s < 40);
+    const criticalStudents = scores.filter(s => s < 30);
+    const moderateStudents = scores.filter(s => s >= 30 && s < 40);
 
-    document.getElementById("topStudents").innerHTML =
-        topStudents.map(s =>
-            `<li class="list-group-item d-flex justify-content-between">
-                <span>${s.id_student}</span>
-                <span class="badge bg-success">${s.score}%</span>
-            </li>`
-        ).join("");
+    document.getElementById("atRiskCount").innerText = atRiskStudents.length;
+    document.getElementById("criticalCount").innerText = criticalStudents.length;
+    document.getElementById("moderateCount").innerText = moderateStudents.length;
+
+    // NEW: Update Top Performers Count
+    const topPerformers = scores.filter(s => s >= 70);
+    document.getElementById("topPerformersCount").innerText = topPerformers.length;
+}  // ← This closes renderLecturerSummary
+
+function drillDownAtRisk() {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    // Show the hidden sections with smooth reveal (Risk + Engagement focus)
+    const sectionsToReveal = ['risk', 'engagement', 'participation', 'materials', 'timeanalysis'];
+
+    sectionsToReveal.forEach((sectionId, index) => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            setTimeout(() => {
+                section.style.display = 'block';
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(20px)';
+                section.style.transition = 'all 0.5s ease';
+
+                // Show close button
+                const closeBtn = document.getElementById(`close${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+                if (closeBtn) closeBtn.style.display = 'inline-block';
+
+                setTimeout(() => {
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, 50);
+            }, index * 150);
+        }
+    });
+
+    // Filter to show all at-risk students
+    filterRiskLevel('all');
 }
 
 function renderClassPerformance(scores, moduleCode) {
@@ -1775,7 +1814,37 @@ function drillDownTotalStudents() {
         return;
     }
 
-    // USE ONLY CURRENT MODULE DATA
+    // FIRST: Reveal participation/engagement sections
+    const sectionsToReveal = ['participation', 'materials', 'timeanalysis', 'engagement'];
+
+    sectionsToReveal.forEach((sectionId, index) => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            setTimeout(() => {
+                section.style.display = 'block';
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(20px)';
+                section.style.transition = 'all 0.5s ease';
+
+                // Show close button
+                const closeBtn = document.getElementById(`close${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+                if (closeBtn) closeBtn.style.display = 'inline-block';
+
+                setTimeout(() => {
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, 50);
+            }, index * 150);
+        }
+    });
+
+    setTimeout(() => {
+        showStudentBreakdownModal();
+    }, 800);
+}
+
+// NEW: Separate function for student breakdown modal
+function showStudentBreakdownModal() {
     const scores = allStudentScores.map(s => Number(s.score));
     const categories = {
         'Distinction (80-100%)': scores.filter(s => s >= 80).length,
@@ -1791,18 +1860,35 @@ function drillDownTotalStudents() {
         <div class="row g-3">
             ${Object.entries(categories).map(([name, count]) => {
         const percentage = ((count / scores.length) * 100).toFixed(1);
-        const color = name.includes('Distinction') ? 'success' :
-            name.includes('Merit') ? 'info' :
-                name.includes('Pass') ? 'warning' : 'danger';
+        let bgColor, borderColor, iconColor;
+
+        if (name.includes('Distinction')) {
+            bgColor = '#d1e7dd';
+            borderColor = '#198754';
+            iconColor = '#198754';
+        } else if (name.includes('Merit')) {
+            bgColor = '#cfe2ff';
+            borderColor = '#0d6efd';
+            iconColor = '#0d6efd';
+        } else if (name.includes('Pass')) {
+            bgColor = '#fff3cd';
+            borderColor = '#ffc107';
+            iconColor = '#ffc107';
+        } else {
+            bgColor = '#f8d7da';
+            borderColor = '#dc3545';
+            iconColor = '#dc3545';
+        }
+
         return `
                     <div class="col-md-6">
-                        <div class="card border-${color} h-100">
+                        <div class="card h-100" style="border: 2px solid ${borderColor}; background-color: ${bgColor};">
                             <div class="card-body text-center">
-                                <h5 class="text-${color}">${name}</h5>
-                                <h2 class="display-4">${count}</h2>
+                                <h5 style="color: ${iconColor};">${name}</h5>
+                                <h2 class="display-4" style="color: ${iconColor};">${count}</h2>
                                 <p class="text-muted mb-0">${percentage}% of class</p>
                                 <div class="progress mt-2" style="height: 8px;">
-                                    <div class="progress-bar bg-${color}" style="width: ${percentage}%"></div>
+                                    <div class="progress-bar" style="width: ${percentage}%; background-color: ${iconColor};"></div>
                                 </div>
                             </div>
                         </div>
@@ -1830,7 +1916,37 @@ function drillDownClassScore() {
         return;
     }
 
-    // USE ONLY CURRENT MODULE DATA
+    // FIRST: Reveal sections with animation (Performance storyline ONLY)
+    const sectionsToReveal = ['risk', 'deadlines'];
+
+    sectionsToReveal.forEach((sectionId, index) => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            setTimeout(() => {
+                section.style.display = 'block';
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(20px)';
+                section.style.transition = 'all 0.5s ease';
+
+                // Show close button
+                const closeBtn = document.getElementById(`close${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+                if (closeBtn) closeBtn.style.display = 'inline-block';
+
+                setTimeout(() => {
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, 50);
+            }, index * 150);
+        }
+    });
+
+    setTimeout(() => {
+        showPerformanceModal();
+    }, 800);
+}
+
+// NEW: Separate function for the detailed modal
+function showPerformanceModal() {
     const topPerformers = [...allStudentScores]
         .sort((a, b) => b.score - a.score)
         .slice(0, 10);
@@ -1850,22 +1966,26 @@ function drillDownClassScore() {
         <div class="row g-4">
             <div class="col-md-6">
                 <div class="card border-success h-100">
-                    <div class="card-header bg-success text-white">
+                    <div class="card-header" style="background-color: #198754; color: white;">
                         <i class="bi bi-trophy me-2"></i>
                         <strong>Top 10 Performers in ${currentModuleCode}</strong>
                         <small class="d-block mt-1">Learn from their success patterns</small>
                     </div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <div class="list-group list-group-flush">
-                            ${topPerformers.map((s, idx) => `
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                            ${topPerformers.map((s, idx) => {
+        const score = Number(s.score);
+        const bgColor = score >= 80 ? '#d1e7dd' : score >= 60 ? '#cfe2ff' : '#fff3cd';
+        const textColor = score >= 80 ? '#198754' : score >= 60 ? '#0d6efd' : '#ffc107';
+        return `
+                                <div class="list-group-item d-flex justify-content-between align-items-center" style="background-color: ${bgColor};">
                                     <div>
-                                        <span class="badge bg-success me-2">#${idx + 1}</span>
+                                        <span class="badge me-2" style="background-color: ${textColor};">#${idx + 1}</span>
                                         <strong>${s.id_student}</strong>
                                     </div>
-                                    <span class="badge bg-success rounded-pill">${s.score}%</span>
+                                    <span class="badge rounded-pill" style="background-color: ${textColor};">${s.score}%</span>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     </div>
                 </div>
@@ -1873,7 +1993,7 @@ function drillDownClassScore() {
 
             <div class="col-md-6">
                 <div class="card border-danger h-100">
-                    <div class="card-header bg-danger text-white">
+                    <div class="card-header" style="background-color: #dc3545; color: white;">
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         <strong>At-Risk Students (${atRiskStudents.length})</strong>
                         <small class="d-block mt-1">Require immediate intervention</small>
@@ -1882,17 +2002,22 @@ function drillDownClassScore() {
                         ${atRiskStudents.length > 0 ? `
                             <div class="list-group list-group-flush">
                                 ${atRiskStudents.map(s => {
-        const critical = Number(s.score) < 30;
-        return `
-                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+            const score = Number(s.score);
+            const isCritical = score < 30;
+            const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
+            const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
+            const label = isCritical ? 'CRITICAL' : 'MODERATE';
+
+            return `
+                                    <div class="list-group-item d-flex justify-content-between align-items-center" style="background-color: ${bgColor};">
                                         <div>
                                             <strong>${s.id_student}</strong>
-                                            ${critical ? '<span class="badge bg-danger ms-2">CRITICAL</span>' : ''}
+                                            <span class="badge ms-2" style="background-color: ${badgeColor};">${label}</span>
                                         </div>
-                                        <span class="badge bg-danger rounded-pill">${s.score}%</span>
+                                        <span class="badge rounded-pill" style="background-color: ${badgeColor};">${s.score}%</span>
                                     </div>
                                 `;
-    }).join('')}
+        }).join('')}
                             </div>
                             <div class="alert alert-warning mt-3 mb-0">
                                 <i class="bi bi-lightbulb me-2"></i>
@@ -1945,8 +2070,8 @@ function drillDownTopPerformers() {
             <strong>Module: ${currentModuleCode}</strong> | 
             High Performers (70%+): ${highPerformers.length} out of ${allStudentScores.length} students
         </div>
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white">
+        <div class="card" style="border: 2px solid #198754;">
+            <div class="card-header" style="background-color: #198754; color: white;">
                 <i class="bi bi-stars me-2"></i>
                 <strong>Students Scoring 70% and Above in ${currentModuleCode}</strong>
                 <small class="d-block mt-1">Potential peer mentors and teaching assistants</small>
@@ -1955,21 +2080,34 @@ function drillDownTopPerformers() {
                 ${highPerformers.length > 0 ? `
                     <div class="row g-2">
                         ${highPerformers.map(s => {
-        const tier = Number(s.score) >= 90 ? 'gold' :
-            Number(s.score) >= 80 ? 'silver' : 'bronze';
-        const color = tier === 'gold' ? 'warning' :
-            tier === 'silver' ? 'secondary' : 'info';
-        const icon = tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉';
+        const score = Number(s.score);
+        // Use shades of GREEN only (consistent colors)
+        let bgColor, badgeColor, intensity;
+
+        if (score >= 90) {
+            bgColor = '#d1e7dd';  // Light green
+            badgeColor = '#198754'; // Dark green
+            intensity = 'Exceptional';
+        } else if (score >= 80) {
+            bgColor = '#d1e7dd';  // Light green
+            badgeColor = '#20c997'; // Medium green
+            intensity = 'Excellent';
+        } else {
+            bgColor = '#e7f5ec';  // Very light green
+            badgeColor = '#28a745'; // Standard green
+            intensity = 'Good';
+        }
+
         return `
                             <div class="col-md-6">
-                                <div class="card border-${color} mb-2">
+                                <div class="card mb-2" style="border: 1px solid ${badgeColor}; background-color: ${bgColor};">
                                     <div class="card-body p-2 d-flex justify-content-between align-items-center">
                                         <div>
-                                            <span>${icon}</span>
-                                            <i class="bi bi-award text-${color} me-2"></i>
+                                            <i class="bi bi-award me-2" style="color: ${badgeColor};"></i>
                                             <strong>${s.id_student}</strong>
+                                            <small class="d-block text-muted">${intensity}</small>
                                         </div>
-                                        <span class="badge bg-${color}">${s.score}%</span>
+                                        <span class="badge" style="background-color: ${badgeColor};">${s.score}%</span>
                                     </div>
                                 </div>
                             </div>
@@ -1999,6 +2137,26 @@ function drillDownTopPerformers() {
     bsModal.show();
     modal.addEventListener('hidden.bs.modal', () => modal.remove());
 }
+
+// Function to collapse/hide sections
+function collapseSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const closeBtn = document.getElementById(`close${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+
+    if (section) {
+        section.style.transition = 'all 0.3s ease';
+        section.style.opacity = '0';
+        section.style.transform = 'translateY(-20px)';
+
+        setTimeout(() => {
+            section.style.display = 'none';
+            if (closeBtn) closeBtn.style.display = 'none';
+        }, 300);
+    }
+}
+
+// Make it globally available
+window.collapseSection = collapseSection;
 
 // ============================================
 // EXPORT FUNCTIONS
@@ -2172,14 +2330,17 @@ function renderRiskTable(students, filterLevel = 'all') {
         .map(s => {
             const score = Number(s.score);
             const isCritical = score < 30;
-            const badgeClass = isCritical ? 'bg-danger' : 'bg-warning';
+
+            // Consistent colors: Red for Critical, Orange for Moderate
+            const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
+            const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
             const riskLabel = isCritical ? 'CRITICAL' : 'MODERATE';
 
             return `
-            <tr class="${isCritical ? 'table-danger' : 'table-warning'}">
+            <tr style="background-color: ${bgColor};">
                 <td><strong>${s.id_student}</strong></td>
-                <td><span class="badge ${badgeClass}">${s.score}%</span></td>
-                <td><span class="badge ${badgeClass}">${riskLabel}</span></td>
+                <td><span class="badge" style="background-color: ${badgeColor};">${s.score}%</span></td>
+                <td><span class="badge" style="background-color: ${badgeColor};">${riskLabel}</span></td>
             </tr>
         `;
         }).join("") :
@@ -2188,8 +2349,11 @@ function renderRiskTable(students, filterLevel = 'all') {
             No students in this category
         </td></tr>`;
 
+    const alertColor = filterLevel === 'critical' ? '#dc3545' : (filterLevel === 'moderate' ? '#fd7e14' : '#0d6efd');
+    const alertBg = filterLevel === 'critical' ? '#f8d7da' : (filterLevel === 'moderate' ? '#ffe5d0' : '#cfe2ff');
+
     const message = students.length > 0 ?
-        `<div class="alert ${filterLevel === 'critical' ? 'alert-danger' : 'alert-warning'} mb-2">
+        `<div class="alert mb-2" style="background-color: ${alertBg}; border-color: ${alertColor}; color: ${alertColor};">
             ${interventionMessages[filterLevel]}
             <strong class="d-block mt-1">${students.length} student(s) found</strong>
         </div>` : '';
@@ -2244,6 +2408,7 @@ function createDrillDownModal(title, content) {
 window.drillDownTotalStudents = drillDownTotalStudents;
 window.drillDownClassScore = drillDownClassScore;
 window.drillDownTopPerformers = drillDownTopPerformers;
+window.drillDownAtRisk = drillDownAtRisk;  // ← ADD THIS LINE
 window.filterRiskLevel = filterRiskLevel;
 window.sortRiskTable = sortRiskTable;
 window.exportModuleToExcel = exportModuleToExcel;

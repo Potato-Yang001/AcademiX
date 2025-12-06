@@ -446,6 +446,175 @@
             font-size: 0.85rem;
             padding: 0.4rem 0.8rem;
         }
+
+        /* Power BI Style Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* Smooth reveal animation for sections */
+        [id^="risk"],
+        [id^="deadlines"],
+        [id^="engagement"],
+        [id^="materials"],
+        [id^="timeanalysis"],
+        [id^="participation"] {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Summary card hover effects (Power BI style) */
+        .summary-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .summary-card:hover::before {
+            left: 100%;
+        }
+
+        .summary-card:active {
+            animation: pulse 0.3s ease;
+        }
+
+        /* Card value number animation */
+        .summary-card .value {
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover .value {
+            transform: scale(1.1);
+            color: var(--primary-color);
+        }
+
+        /* Chart hover effects */
+        .chart-container {
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover .chart-container {
+            transform: scale(1.02);
+        }
+
+        /* Badge transitions */
+        .badge {
+            transition: all 0.3s ease;
+        }
+
+        .badge:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Loading animation for sections */
+        .section-loading {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .section-loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Progress bar animations */
+        .progress-bar {
+            transition: width 1s ease-in-out;
+        }
+
+        /* Table row hover effect (Power BI style) */
+        .table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            transform: translateX(5px);
+            box-shadow: -5px 0 0 0 var(--primary-color);
+        }
+
+        /* Alert animations */
+        .alert {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        /* Zoom icon pulse */
+        .zoom-icon {
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover .zoom-icon {
+            animation: pulse 1s infinite;
+            color: var(--primary-color) !important;
+        }
+
+        /* Icon wrapper glow effect */
+        .icon-wrapper {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-card:hover .icon-wrapper {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-3px);
+        }
+
+        /* Modal animations */
+        .modal.fade .modal-dialog {
+            transform: scale(0.8);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .modal.show .modal-dialog {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        /* Smooth scroll behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* List group items animation */
+        .list-group-item {
+            transition: all 0.2s ease;
+        }
+
+        .list-group-item:hover {
+            transform: translateX(3px);
+            background-color: #f8f9fa !important;
+        }
     </style>
 </head>
 
@@ -554,7 +723,8 @@
 
         <!-- Summary Cards with Drill-Down -->
         <div id="overview" class="row g-4 mb-4">
-            <div class="col-12 col-sm-6 col-lg-4">
+            <!-- Card 1: Total Students -->
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="summary-card" onclick="drillDownTotalStudents()" title="Click to view student breakdown">
                     <i class="bi bi-zoom-in zoom-icon"></i>
                     <div class="icon-wrapper" style="background: linear-gradient(135deg, #667eea, #764ba2);">
@@ -566,7 +736,8 @@
                 </div>
             </div>
 
-            <div class="col-12 col-sm-6 col-lg-4">
+            <!-- Card 2: Average Class Score -->
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="summary-card" onclick="drillDownClassScore()" title="Click to view performance details">
                     <i class="bi bi-zoom-in zoom-icon"></i>
                     <div class="icon-wrapper" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
@@ -579,17 +750,34 @@
                 </div>
             </div>
 
-            <div class="col-12 col-lg-4">
+            <!-- Card 3: At-Risk Students (NEW CARD) -->
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="summary-card" onclick="drillDownAtRisk()" title="Click to view at-risk students">
+                    <i class="bi bi-zoom-in zoom-icon"></i>
+                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #dc3545, #f8d7da);">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <h5>At-Risk Students</h5>
+                    <div class="value" id="atRiskCount">0</div>
+                    <div class="small text-danger" id="atRiskBreakdown">
+                        <span id="criticalCount">0</span> Critical ·
+                        <span id="moderateCount">0</span> Moderate
+                    </div>
+                    <small class="text-muted d-block mt-2">Click for intervention plan</small>
+                </div>
+            </div>
+
+            <!-- Card 4: Top Performers (SIMPLIFIED) -->
+            <div class="col-12 col-sm-6 col-lg-3">
                 <div class="summary-card" onclick="drillDownTopPerformers()" title="Click to view all high performers">
                     <i class="bi bi-zoom-in zoom-icon"></i>
-                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #198754, #d1e7dd);">
                         <i class="bi bi-star-fill"></i>
                     </div>
                     <h5>Top Performers</h5>
-                    <ul id="topStudents" class="list-group list-group-flush mt-2">
-                        <li class="list-group-item text-muted small">Loading...</li>
-                    </ul>
-                    <small class="text-muted d-block mt-2">Click to see all top students</small>
+                    <div class="value" id="topPerformersCount">0</div>
+                    <small class="text-muted">Students scoring 70%+</small>
+                    <small class="text-muted d-block mt-2">Click to see all details</small>
                 </div>
             </div>
         </div>
@@ -612,20 +800,26 @@
             </div>
 
             <!-- At-Risk Students with Filters -->
-            <div class="col-12 col-lg-6" id="risk">
+            <div class="col-12 col-lg-6" id="risk" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-danger text-white">
                         <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
                             <span>
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 At-Risk Students (Score < 40%) </span>
-                                    <div class="filter-btn-group">
-                                        <button class="btn btn-light btn-sm active" onclick="filterRiskLevel('all')"
-                                            id="riskAll">All</button>
-                                        <button class="btn btn-light btn-sm" onclick="filterRiskLevel('critical')"
-                                            id="riskCritical">Critical (&lt;30%)</button>
-                                        <button class="btn btn-light btn-sm" onclick="filterRiskLevel('moderate')"
-                                            id="riskModerate">Moderate (30-39%)</button>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <div class="filter-btn-group">
+                                            <button class="btn btn-light btn-sm active" onclick="filterRiskLevel('all')"
+                                                id="riskAll">All</button>
+                                            <button class="btn btn-light btn-sm" onclick="filterRiskLevel('critical')"
+                                                id="riskCritical">Critical (&lt;30%)</button>
+                                            <button class="btn btn-light btn-sm" onclick="filterRiskLevel('moderate')"
+                                                id="riskModerate">Moderate (30-39%)</button>
+                                        </div>
+                                        <button class="btn btn-sm btn-light" onclick="collapseSection('risk')"
+                                            style="display: none;" id="closeRisk">
+                                            <i class="bi bi-x-lg"></i> Close
+                                        </button>
                                     </div>
                         </div>
                     </div>
@@ -649,7 +843,7 @@
             </div>
 
             <!-- Assessment Deadlines -->
-            <div class="col-12 col-lg-6" id="deadlines">
+            <div class="col-12 col-lg-6" id="deadlines" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-warning text-dark">
                         <i class="bi bi-calendar-check"></i>
@@ -667,7 +861,7 @@
             </div>
 
             <!-- Engagement Warnings -->
-            <div class="col-12 col-lg-6" id="engagement">
+            <div class="col-12 col-lg-6" id="engagement" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-info text-white">
                         <i class="bi bi-bell-fill"></i>
@@ -685,7 +879,7 @@
             </div>
 
             <!-- Material Usage -->
-            <div class="col-12 col-lg-6" id="materials">
+            <div class="col-12 col-lg-6" id="materials" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-secondary text-white">
                         <i class="bi bi-file-earmark-bar-graph"></i>
@@ -700,7 +894,7 @@
             </div>
 
             <!-- Time Analysis -->
-            <div class="col-12 col-lg-6" id="timeanalysis">
+            <div class="col-12 col-lg-6" id="timeanalysis" style="display: none;">
                 <div class="card">
                     <div class="card-header"
                         style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
@@ -719,7 +913,7 @@
             </div>
 
             <!-- Participation Trends (Full Width) -->
-            <div class="col-12" id="participation">
+            <div class="col-12" id="participation" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-success text-white">
                         <i class="bi bi-graph-up-arrow"></i>
