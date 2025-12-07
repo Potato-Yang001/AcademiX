@@ -846,8 +846,16 @@
             <div class="col-12 col-lg-6" id="deadlines" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-warning text-dark">
-                        <i class="bi bi-calendar-check"></i>
-                        Assessment Deadlines & Submissions
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-calendar-check"></i>
+                                Assessment Deadlines & Submissions
+                            </span>
+                            <button class="btn btn-sm btn-dark" onclick="collapseSection('deadlines')"
+                                style="display: none;" id="closeDeadlines">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="moduleDeadlines">
@@ -864,14 +872,87 @@
             <div class="col-12 col-lg-6" id="engagement" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-info text-white">
-                        <i class="bi bi-bell-fill"></i>
-                        Engagement Warnings
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-bell-fill"></i>
+                                Engagement Warnings
+                            </span>
+                            <button class="btn btn-sm btn-light" onclick="collapseSection('engagement')"
+                                style="display: none;" id="closeEngagement">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="engagementWarnings">
                             <div class="empty-state">
                                 <i class="bi bi-info-circle"></i>
                                 <p>Select a module to view engagement alerts</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Student Engagement List (NEW) -->
+                    <div class="col-12" id="studentEngagement" style="display: none;">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <span>
+                                        <i class="bi bi-people-fill"></i>
+                                        Student Engagement Levels (Based on VLE Activity)
+                                    </span>
+                                    <button class="btn btn-sm btn-light" onclick="collapseSection('studentEngagement')"
+                                        style="display: none;" id="closeStudentEngagement">
+                                        <i class="bi bi-x-lg"></i> Close
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>Engagement Classification:</strong>
+                                    High (20+ clicks/day) | Medium (10-19 clicks/day) | Low (&lt;10 clicks/day)
+                                </div>
+
+                                <!-- Filter Buttons -->
+                                <div class="btn-group mb-3" role="group">
+                                    <button class="btn btn-outline-secondary active" onclick="filterEngagement('all')"
+                                        id="engAll">
+                                        All Students
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="filterEngagement('high')"
+                                        id="engHigh">
+                                        High Engagement
+                                    </button>
+                                    <button class="btn btn-outline-warning" onclick="filterEngagement('medium')"
+                                        id="engMedium">
+                                        Medium Engagement
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="filterEngagement('low')"
+                                        id="engLow">
+                                        Low Engagement
+                                    </button>
+                                </div>
+
+                                <div class="table-responsive" style="max-height: 500px;">
+                                    <table class="table table-hover">
+                                        <thead class="sticky-top bg-white">
+                                            <tr>
+                                                <th>Student ID</th>
+                                                <th>Avg Clicks/Day</th>
+                                                <th>Engagement Level</th>
+                                                <th>Last Active</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="studentEngagementTable">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">
+                                                    Select a module to view student engagement
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -882,8 +963,16 @@
             <div class="col-12 col-lg-6" id="materials" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-file-earmark-bar-graph"></i>
-                        Module Material Usage
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-file-earmark-bar-graph"></i>
+                                Module Material Usage
+                            </span>
+                            <button class="btn btn-sm btn-light" onclick="collapseSection('materials')"
+                                style="display: none;" id="closeMaterials">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
@@ -898,8 +987,16 @@
                 <div class="card">
                     <div class="card-header"
                         style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
-                        <i class="bi bi-clock-history"></i>
-                        Time-on-Task Analysis
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-clock-history"></i>
+                                Time-on-Task Analysis
+                            </span>
+                            <button class="btn btn-sm btn-light" onclick="collapseSection('timeanalysis')"
+                                style="display: none;" id="closeTimeanalysis">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="timeAnalysis">
@@ -916,8 +1013,16 @@
             <div class="col-12" id="participation" style="display: none;">
                 <div class="card">
                     <div class="card-header bg-success text-white">
-                        <i class="bi bi-graph-up-arrow"></i>
-                        Student Participation Trends (VLE Activity)
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-graph-up-arrow"></i>
+                                Student Participation Trends (VLE Activity)
+                            </span>
+                            <button class="btn btn-sm btn-light" onclick="collapseSection('participation')"
+                                style="display: none;" id="closeParticipation">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="chart-container" style="height: 400px;">

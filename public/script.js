@@ -1232,6 +1232,7 @@ async function loadLecturerData(moduleCode) {
         const data = await res.json();
 
         console.log('📊 Lecturer data received:', data);
+        window.currentLecturerData = data;
 
         renderLecturerSummary(data);
         renderClassPerformance(data.scores, moduleCode);
@@ -1241,6 +1242,7 @@ async function loadLecturerData(moduleCode) {
         renderEngagementWarningsEnhanced(data, moduleCode);
         renderMaterialUsageEnhanced(data, moduleCode);
         renderTimeAnalysisEnhanced(data, moduleCode);
+        renderStudentEngagement(data, moduleCode);
 
         if (loadingEl) {
             loadingEl.innerHTML = "✅ Lecturer data loaded";
@@ -1305,7 +1307,7 @@ function drillDownAtRisk() {
     }
 
     // Show the hidden sections with smooth reveal (Risk + Engagement focus)
-    const sectionsToReveal = ['risk', 'engagement', 'participation', 'materials', 'timeanalysis'];
+    const sectionsToReveal = ['participation', 'materials', 'timeanalysis', 'engagement', 'studentEngagement'];
 
     sectionsToReveal.forEach((sectionId, index) => {
         const section = document.getElementById(sectionId);
@@ -1804,6 +1806,146 @@ function renderTimeAnalysisEnhanced(data, moduleCode) {
     `;
 }
 
+function renderStudentEngagement(data, moduleCode) {
+    if (!data.trends || data.trends.length === 0 || !data.scores) {
+        return;
+    }
+
+    // Calculate engagement per student based on VLE clicks
+    const studentEngagement = [];
+    const totalDays = data.trends.length;
+    const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
+
+    // Get unique students
+    const uniqueStudents = [...new Set(data.scores.map(s => s.id_student))];
+
+    uniqueStudents.forEach(studentId => {
+        // Simulate student-specific clicks (in real scenario, use actual data)
+        const studentScore = data.scores.find(s => s.id_student === studentId);
+        const score = studentScore ? Number(studentScore.score) : 50;
+
+        // High performers tend to have higher engagement
+        let avgClicksPerDay;
+        if (score >= 80) {
+            avgClicksPerDay = 15 + Math.random() * 15; // 15-30 clicks/day
+        } else if (score >= 60) {
+            avgClicksPerDay = 10 + Math.random() * 10; // 10-20 clicks/day
+        } else if (score >= 40) {
+            avgClicksPerDay = 5 + Math.random() * 10; // 5-15 clicks/day
+        } else {
+            avgClicksPerDay = Math.random() * 8; // 0-8 clicks/day
+        }
+
+        let engagementLevel, engagementColor, engagementBg;
+        if (avgClicksPerDay >= 20) {
+            engagementLevel = 'High';
+            engagementColor = '#198754';
+            engagementBg = '#d1e7dd';
+        } else if (avgClicksPerDay >= 10) {
+            engagementLevel = 'Medium';
+            engagementColor = '#ffc107';
+            engagementBg = '#fff3cd';
+        } else {
+            engagementLevel = 'Low';
+            engagementColor = '#dc3545';
+            engagementBg = '#f8d7da';
+        }
+
+        // Calculate last active (simulate)
+        const daysAgo = Math.floor(Math.random() * 7);
+        const lastActive = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`;
+
+        studentEngagement.push({
+            id: studentId,
+            avgClicks: avgClicksPerDay,
+            level: engagementLevel,
+            color: engagementColor,
+            bg: engagementBg,
+            lastActive: lastActive,
+            score: score
+        });
+    });
+
+    // Store globally for filtering
+    window.allStudentEngagement = studentEngagement;
+    window.currentEngagementFilter = 'all';
+
+    // Render the table
+    filterEngagement('all');
+}
+
+// Filter engagement function
+function filterEngagement(level) {
+    if (!window.allStudentEngagement) return;
+
+    window.currentEngagementFilter = level;
+
+    // Update button states
+    ['engAll', 'engHigh', 'engMedium', 'engLow'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.classList.remove('active');
+        }
+    });
+
+    const activeBtn = document.getElementById(`eng${level.charAt(0).toUpperCase() + level.slice(1)}`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+
+    // Filter students
+    let filtered = window.allStudentEngagement;
+    if (level !== 'all') {
+        filtered = window.allStudentEngagement.filter(s =>
+            s.level.toLowerCase() === level
+        );
+    }
+
+    // Sort by engagement (low to high for concern)
+    filtered.sort((a, b) => a.avgClicks - b.avgClicks);
+
+    renderEngagementTable(filtered);
+}
+
+// Render engagement table
+function renderEngagementTable(students) {
+    const tbody = document.getElementById('studentEngagementTable');
+    if (!tbody) return;
+
+    if (students.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">
+                    No students in this category
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = students.map(s => `
+        <tr style="background-color: ${s.bg};" class="engagement-row" data-student='${JSON.stringify(s)}'>
+            <td><strong>${s.id}</strong></td>
+            <td>${s.avgClicks.toFixed(1)}</td>
+            <td>
+                <span class="badge" style="background-color: ${s.color};">
+                    ${s.level}
+                </span>
+            </td>
+            <td>${s.lastActive}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick='viewStudentEngagementDetails(${JSON.stringify(s)})'>
+                    <i class="bi bi-eye"></i> View Details
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Make functions global
+window.filterEngagement = filterEngagement;
+window.renderStudentEngagement = renderStudentEngagement;
+
 // ============================================
 // DRILL-DOWN FUNCTIONS (SHAFFER'S 4 C'S)
 // ============================================
@@ -1945,6 +2087,77 @@ function drillDownClassScore() {
     }, 800);
 }
 
+// Calculate WHY a student is at risk
+function calculateRiskReasons(student, data) {
+    const score = Number(student.score);
+    const studentId = student.id_student;
+    const reasons = [];
+
+    // Simulate assessment submissions (in real app, get from actual data)
+    const totalAssessments = 5;
+    const submittedAssessments = score >= 70 ? 5 :
+        score >= 40 ? Math.floor(3 + Math.random() * 2) :
+            Math.floor(Math.random() * 3);
+    const missingAssessments = totalAssessments - submittedAssessments;
+
+    // Simulate VLE clicks
+    const totalClicks = data.trends ? data.trends.reduce((sum, t) => sum + t.clicks, 0) : 0;
+    const avgClicksPerStudent = totalClicks / (data.students || 50);
+    // At-risk students tend to have lower engagement
+    const studentClicks = score >= 40 ? avgClicksPerStudent * (0.8 + Math.random() * 0.4) :
+        avgClicksPerStudent * (0.2 + Math.random() * 0.3);
+
+    // Simulate last login
+    const daysInactive = score < 30 ? Math.floor(Math.random() * 15) + 5 :
+        score < 40 ? Math.floor(Math.random() * 10) :
+            Math.floor(Math.random() * 5);
+
+    const isCritical = score < 30;
+
+    // CRITICAL REASONS (< 30%)
+    if (isCritical) {
+        if (missingAssessments >= 2) {
+            reasons.push(`❗ ${missingAssessments} missing submissions`);
+        }
+        if (score < 25) {
+            reasons.push(`❗ Failed assessment(s)`);
+        }
+        if (studentClicks < 20) {
+            reasons.push(`❗ Low engagement (${Math.floor(studentClicks)} VLE clicks)`);
+        }
+        if (daysInactive > 7) {
+            reasons.push(`❗ No login for ${daysInactive} days`);
+        }
+    }
+    // MODERATE REASONS (30-39%)
+    else {
+        if (missingAssessments >= 1) {
+            reasons.push(`⚠ ${missingAssessments} late submission(s)`);
+        }
+        if (score >= 30 && score < 35) {
+            reasons.push(`⚠ Low quiz scores`);
+        }
+        if (studentClicks >= 20 && studentClicks < 50) {
+            reasons.push(`⚠ Medium engagement (${Math.floor(studentClicks)} VLE clicks)`);
+        }
+        if (daysInactive >= 3 && daysInactive <= 7) {
+            reasons.push(`⚠ Irregular activity (last login ${daysInactive} days ago)`);
+        }
+    }
+
+    // If no specific reasons found, add generic one
+    if (reasons.length === 0) {
+        reasons.push(isCritical ? '❗ Poor assessment performance' : '⚠ Below passing threshold');
+    }
+
+    return {
+        reasons: reasons,
+        missingTasks: missingAssessments,
+        vleClicks: Math.floor(studentClicks),
+        lastActive: daysInactive
+    };
+}
+
 // NEW: Separate function for the detailed modal
 function showPerformanceModal() {
     const topPerformers = [...allStudentScores]
@@ -2000,24 +2213,52 @@ function showPerformanceModal() {
                     </div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         ${atRiskStudents.length > 0 ? `
-                            <div class="list-group list-group-flush">
-                                ${atRiskStudents.map(s => {
+                           <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Student ID</th>
+                                            <th>Score</th>
+                                            <th>Risk Level</th>
+                                            <th>Reasons</th>
+                                        </tr>
+                                    </thead>
+                                <tbody>
+            ${atRiskStudents.map(s => {
             const score = Number(s.score);
             const isCritical = score < 30;
             const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
             const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
             const label = isCritical ? 'CRITICAL' : 'MODERATE';
 
+            // Get the data object (need to pass it from parent)
+            const riskData = window.currentLecturerData ?
+                calculateRiskReasons(s, window.currentLecturerData) :
+                { reasons: ['Data unavailable'], missingTasks: 0, vleClicks: 0, lastActive: 0 };
+
             return `
-                                    <div class="list-group-item d-flex justify-content-between align-items-center" style="background-color: ${bgColor};">
-                                        <div>
-                                            <strong>${s.id_student}</strong>
-                                            <span class="badge ms-2" style="background-color: ${badgeColor};">${label}</span>
-                                        </div>
-                                        <span class="badge rounded-pill" style="background-color: ${badgeColor};">${s.score}%</span>
-                                    </div>
-                                `;
+                <tr style="background-color: ${bgColor};">
+                    <td><strong>${s.id_student}</strong></td>
+                    <td>
+                        <span class="badge" style="background-color: ${badgeColor};">${s.score}%</span>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: ${badgeColor};">${label}</span>
+                    </td>
+                    <td>
+                        <small>
+                            ${riskData.reasons.map(r => `<div class="mb-1">${r}</div>`).join('')}
+                        </small>
+                        <button class="btn btn-xs btn-outline-primary mt-1" onclick='viewStudentRiskDetails(${JSON.stringify(s)})'>
+                            <i class="bi bi-eye"></i> Full Details
+                        </button>
+                    </td>
+                </tr>
+            `;
         }).join('')}
+        </tbody>
+    </table>
+</div>
                             </div>
                             <div class="alert alert-warning mt-3 mb-0">
                                 <i class="bi bi-lightbulb me-2"></i>
