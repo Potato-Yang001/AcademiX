@@ -722,62 +722,66 @@
         </div>
 
         <!-- Summary Cards with Drill-Down -->
-        <div id="overview" class="row g-4 mb-4">
-            <!-- Card 1: Total Students -->
-            <div class="col-12 col-sm-6 col-lg-3">
-                <div class="summary-card" onclick="drillDownTotalStudents()" title="Click to view student breakdown">
-                    <i class="bi bi-zoom-in zoom-icon"></i>
-                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #667eea, #764ba2);">
-                        <i class="bi bi-people-fill"></i>
+        <div id="dashboardOverview">
+            <div id="overview" class="row g-4 mb-4">
+                <!-- Card 1: Total Students -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="summary-card" onclick="drillDownTotalStudents()"
+                        title="Click to view student breakdown">
+                        <i class="bi bi-zoom-in zoom-icon"></i>
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <h5>Total Students</h5>
+                        <div class="value" id="totalStudents">0</div>
+                        <small class="text-muted">Click to view breakdown</small>
                     </div>
-                    <h5>Total Students</h5>
-                    <div class="value" id="totalStudents">0</div>
-                    <small class="text-muted">Click to view breakdown</small>
                 </div>
-            </div>
 
-            <!-- Card 2: Average Class Score -->
-            <div class="col-12 col-sm-6 col-lg-3">
-                <div class="summary-card" onclick="drillDownClassScore()" title="Click to view performance details">
-                    <i class="bi bi-zoom-in zoom-icon"></i>
-                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
-                        <i class="bi bi-graph-up"></i>
+                <!-- Card 2: Average Class Score -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="summary-card" onclick="drillDownClassScore()" title="Click to view performance details">
+                        <i class="bi bi-zoom-in zoom-icon"></i>
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <h5>Average Class Score</h5>
+                        <div class="value" id="avgClassScore">0%</div>
+                        <span class="badge bg-secondary" id="performanceBadge">-</span>
+                        <small class="text-muted d-block mt-2">Click for detailed view</small>
                     </div>
-                    <h5>Average Class Score</h5>
-                    <div class="value" id="avgClassScore">0%</div>
-                    <span class="badge bg-secondary" id="performanceBadge">-</span>
-                    <small class="text-muted d-block mt-2">Click for detailed view</small>
                 </div>
-            </div>
 
-            <!-- Card 3: At-Risk Students (NEW CARD) -->
-            <div class="col-12 col-sm-6 col-lg-3">
-                <div class="summary-card" onclick="drillDownAtRisk()" title="Click to view at-risk students">
-                    <i class="bi bi-zoom-in zoom-icon"></i>
-                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #dc3545, #f8d7da);">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
+                <!-- Card 3: At-Risk Students (NEW CARD) -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="summary-card" onclick="showAtRiskPage()" title="Click to view at-risk students">
+                        <i class="bi bi-zoom-in zoom-icon"></i>
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #dc3545, #f8d7da);">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </div>
+                        <h5>At-Risk Students</h5>
+                        <div class="value" id="atRiskCount">0</div>
+                        <div class="small text-danger" id="atRiskBreakdown">
+                            <span id="criticalCount">0</span> Critical ·
+                            <span id="moderateCount">0</span> Moderate
+                        </div>
+                        <small class="text-muted d-block mt-2">Click for intervention plan</small>
                     </div>
-                    <h5>At-Risk Students</h5>
-                    <div class="value" id="atRiskCount">0</div>
-                    <div class="small text-danger" id="atRiskBreakdown">
-                        <span id="criticalCount">0</span> Critical ·
-                        <span id="moderateCount">0</span> Moderate
-                    </div>
-                    <small class="text-muted d-block mt-2">Click for intervention plan</small>
                 </div>
-            </div>
 
-            <!-- Card 4: Top Performers (SIMPLIFIED) -->
-            <div class="col-12 col-sm-6 col-lg-3">
-                <div class="summary-card" onclick="drillDownTopPerformers()" title="Click to view all high performers">
-                    <i class="bi bi-zoom-in zoom-icon"></i>
-                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #198754, #d1e7dd);">
-                        <i class="bi bi-star-fill"></i>
+                <!-- Card 4: Top Performers (SIMPLIFIED) -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="summary-card" onclick="drillDownTopPerformers()"
+                        title="Click to view all high performers">
+                        <i class="bi bi-zoom-in zoom-icon"></i>
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #198754, #d1e7dd);">
+                            <i class="bi bi-star-fill"></i>
+                        </div>
+                        <h5>Top Performers</h5>
+                        <div class="value" id="topPerformersCount">0</div>
+                        <small class="text-muted">Students scoring 70%+</small>
+                        <small class="text-muted d-block mt-2">Click to see all details</small>
                     </div>
-                    <h5>Top Performers</h5>
-                    <div class="value" id="topPerformersCount">0</div>
-                    <small class="text-muted">Students scoring 70%+</small>
-                    <small class="text-muted d-block mt-2">Click to see all details</small>
                 </div>
             </div>
         </div>
@@ -891,69 +895,67 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Student Engagement List (NEW) -->
-                    <div class="col-12" id="studentEngagement" style="display: none;">
-                        <div class="card">
-                            <div class="card-header bg-info text-white">
-                                <div class="d-flex justify-content-between align-items-center w-100">
-                                    <span>
-                                        <i class="bi bi-people-fill"></i>
-                                        Student Engagement Levels (Based on VLE Activity)
-                                    </span>
-                                    <button class="btn btn-sm btn-light" onclick="collapseSection('studentEngagement')"
-                                        style="display: none;" id="closeStudentEngagement">
-                                        <i class="bi bi-x-lg"></i> Close
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="alert alert-info mb-3">
-                                    <i class="bi bi-info-circle me-2"></i>
-                                    <strong>Engagement Classification:</strong>
-                                    High (20+ clicks/day) | Medium (10-19 clicks/day) | Low (&lt;10 clicks/day)
-                                </div>
+                </div>
+            </div>
 
-                                <!-- Filter Buttons -->
-                                <div class="btn-group mb-3" role="group">
-                                    <button class="btn btn-outline-secondary active" onclick="filterEngagement('all')"
-                                        id="engAll">
-                                        All Students
-                                    </button>
-                                    <button class="btn btn-outline-success" onclick="filterEngagement('high')"
-                                        id="engHigh">
-                                        High Engagement
-                                    </button>
-                                    <button class="btn btn-outline-warning" onclick="filterEngagement('medium')"
-                                        id="engMedium">
-                                        Medium Engagement
-                                    </button>
-                                    <button class="btn btn-outline-danger" onclick="filterEngagement('low')"
-                                        id="engLow">
-                                        Low Engagement
-                                    </button>
-                                </div>
+            <!-- Student Engagement List -->
+            <div class="col-12" id="studentEngagement" style="display: none;">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>
+                                <i class="bi bi-people-fill"></i>
+                                Student Engagement Levels (Based on VLE Activity)
+                            </span>
+                            <button class="btn btn-sm btn-light" onclick="collapseSection('studentEngagement')"
+                                style="display: none;" id="closeStudentEngagement">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Engagement Classification:</strong>
+                            High (20+ clicks/day) | Medium (10-19 clicks/day) | Low (&lt;10 clicks/day)
+                        </div>
 
-                                <div class="table-responsive" style="max-height: 500px;">
-                                    <table class="table table-hover">
-                                        <thead class="sticky-top bg-white">
-                                            <tr>
-                                                <th>Student ID</th>
-                                                <th>Avg Clicks/Day</th>
-                                                <th>Engagement Level</th>
-                                                <th>Last Active</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="studentEngagementTable">
-                                            <tr>
-                                                <td colspan="5" class="text-center text-muted">
-                                                    Select a module to view student engagement
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                        <!-- Filter Buttons -->
+                        <div class="btn-group mb-3" role="group">
+                            <button class="btn btn-outline-secondary active" onclick="filterEngagement('all')"
+                                id="engAll">
+                                All Students
+                            </button>
+                            <button class="btn btn-outline-success" onclick="filterEngagement('high')" id="engHigh">
+                                High Engagement
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="filterEngagement('medium')" id="engMedium">
+                                Medium Engagement
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="filterEngagement('low')" id="engLow">
+                                Low Engagement
+                            </button>
+                        </div>
+
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Avg Clicks/Day</th>
+                                        <th>Engagement Level</th>
+                                        <th>Last Active</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentEngagementTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            Select a module to view student engagement
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1026,7 +1028,8 @@
                     </div>
                     <div class="card-body">
                         <div class="chart-container" style="height: 400px;">
-                            <canvas id="participationChart"></canvas>
+                            <canvas id="participationChart" onclick="openParticipationModal()"
+                                style="cursor:pointer;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -1087,9 +1090,385 @@
         </div>
     </div>
 
+    <!-- ===================================================== -->
+    <!-- LEVEL 2: FULL SCREEN DRILL-DOWN PAGES (NEW)          -->
+    <!-- ===================================================== -->
+
+    <!-- At-Risk Students Page (Full Screen) -->
+    <div id="atRiskPage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
+        <div class="page-header">
+            <button class="btn btn-outline-secondary" onclick="backToDashboard()">
+                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+            </button>
+            <div style="flex: 1;">
+                <h2><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>At-Risk Students Analysis</h2>
+                <small class="text-muted">Students requiring immediate intervention</small>
+            </div>
+            <span class="badge bg-danger" style="font-size: 1rem; padding: 0.5rem 1rem;" id="atRiskPageCount">0
+                Students</span>
+        </div>
+
+        <div class="row g-4">
+            <!-- Filter Section -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <h5 class="mb-0">Filter by Risk Level</h5>
+                                <small class="text-muted">Click to view specific categories</small>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-secondary active" onclick="filterRiskPageLevel('all')"
+                                    id="riskPageAll">
+                                    All
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="filterRiskPageLevel('critical')"
+                                    id="riskPageCritical">
+                                    Critical (&lt;30%)
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="filterRiskPageLevel('moderate')"
+                                    id="riskPageModerate">
+                                    Moderate (30-39%)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- At-Risk Students Table (Full Width) -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <i class="bi bi-table me-2"></i>
+                        <strong>At-Risk Students Details</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 600px;">
+                            <table class="table table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th style="width: 120px;">Student ID</th>
+                                        <th style="width: 100px;">Score</th>
+                                        <th style="width: 120px;">Risk Level</th>
+                                        <th>Reasons / Issues</th>
+                                        <th style="width: 150px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="atRiskPageTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-5">
+                                            <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
+                                            <p>Select a module and filter to view at-risk students</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engagement Warnings (Full Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-bell-fill me-2"></i>
+                        <strong>Engagement Warnings</strong>
+                    </div>
+                    <div class="card-body">
+                        <div id="atRiskPageEngagementWarnings">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-info-circle fs-1"></i>
+                                <p>Loading engagement data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assessment Deadlines (Full Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-calendar-check me-2"></i>
+                        <strong>Assessment Submission Status</strong>
+                    </div>
+                    <div class="card-body">
+                        <div id="atRiskPageDeadlines">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-calendar-x fs-1"></i>
+                                <p>Loading deadline data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engagement/Attendance Page (Full Screen) -->
+    <div id="engagementPage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
+        <div class="page-header">
+            <button class="btn btn-outline-secondary" onclick="backToDashboard()">
+                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+            </button>
+            <div style="flex: 1;">
+                <h2><i class="bi bi-people-fill text-primary me-2"></i>Student Engagement & Attendance</h2>
+                <small class="text-muted">VLE activity and participation tracking</small>
+            </div>
+            <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 1rem;" id="engagementPageCount">0
+                Students</span>
+        </div>
+
+        <div class="row g-4">
+            <!-- Filter Section -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <h5 class="mb-0">Filter by Engagement Level</h5>
+                                <small class="text-muted">High (20+ clicks/day) | Medium (10-19) | Low (&lt;10)</small>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-secondary active" onclick="filterEngagementPage('all')"
+                                    id="engPageAll">
+                                    All Students
+                                </button>
+                                <button class="btn btn-outline-success" onclick="filterEngagementPage('high')"
+                                    id="engPageHigh">
+                                    High
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="filterEngagementPage('medium')"
+                                    id="engPageMedium">
+                                    Medium
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="filterEngagementPage('low')"
+                                    id="engPageLow">
+                                    Low
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Engagement Table (Full Width) -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-table me-2"></i>
+                        <strong>Student Engagement Details</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 600px;">
+                            <table class="table table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th style="width: 120px;">Student ID</th>
+                                        <th style="width: 120px;">VLE Clicks</th>
+                                        <th style="width: 150px;">Engagement Level</th>
+                                        <th style="width: 150px;">Last Active</th>
+                                        <th>Activity Summary</th>
+                                        <th style="width: 150px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="engagementPageTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-5">
+                                            <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
+                                            <p>Select a module and filter to view student engagement</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Participation Trends Chart (Full Width) -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <i class="bi bi-graph-up-arrow me-2"></i>
+                        <strong>VLE Participation Trends</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="engagementPageChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Material Usage (Half Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                        <strong>Material Access</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="engagementPageMaterialChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Analysis (Half Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-clock-history me-2"></i>
+                        <strong>Time Analysis</strong>
+                    </div>
+                    <div class="card-body">
+                        <div id="engagementPageTimeAnalysis">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-hourglass fs-1"></i>
+                                <p>Loading time data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Performance Overview Page (Full Screen) -->
+        <div id="performancePage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
+            <div class="page-header">
+                <button class="btn btn-outline-secondary" onclick="backToDashboard()">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+                </button>
+                <div style="flex: 1;">
+                    <h2><i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview</h2>
+                    <small class="text-muted">Academic achievement and assessment results</small>
+                </div>
+                <span class="badge bg-success" style="font-size: 1rem; padding: 0.5rem 1rem;"
+                    id="performancePageAvg">0%</span>
+            </div>
+
+            <div class="row g-4">
+                <!-- Performance Summary Cards -->
+                <div class="col-12">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="card text-center border-success">
+                                <div class="card-body">
+                                    <i class="bi bi-trophy-fill fs-1 text-success mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageDistinction">0</h3>
+                                    <small class="text-muted">Distinction (80-100%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-info">
+                                <div class="card-body">
+                                    <i class="bi bi-award-fill fs-1 text-info mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageMerit">0</h3>
+                                    <small class="text-muted">Merit (60-79%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-warning">
+                                <div class="card-body">
+                                    <i class="bi bi-check-circle-fill fs-1 text-warning mb-2"></i>
+                                    <h3 class="mb-0" id="perfPagePass">0</h3>
+                                    <small class="text-muted">Pass (40-59%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-danger">
+                                <div class="card-body">
+                                    <i class="bi bi-x-circle-fill fs-1 text-danger mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageFail">0</h3>
+                                    <small class="text-muted">Fail (0-39%)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Performers Table -->
+                <div class="col-12 col-lg-6">
+                    <div class="card border-success">
+                        <div class="card-header" style="background-color: #198754; color: white;">
+                            <i class="bi bi-stars me-2"></i>
+                            <strong>Top Performers (70%+)</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive" style="max-height: 500px;">
+                                <table class="table table-hover">
+                                    <thead class="sticky-top bg-white">
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Student ID</th>
+                                            <th>Score</th>
+                                            <th>Grade</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="perfPageTopTable">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-5">
+                                                <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
+                                                <p>Loading top performers...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Statistics -->
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <i class="bi bi-bar-chart-fill me-2"></i>
+                            <strong>Performance Distribution</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height: 400px;">
+                                <canvas id="performancePageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teaching Insights -->
+                <div class="col-12">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-lightbulb-fill me-2"></i>
+                            <strong>Teaching Insights & Recommendations</strong>
+                        </div>
+                        <div class="card-body">
+                            <div id="performancePageInsights">
+                                <div class="text-center text-muted py-3">
+                                    <i class="bi bi-hourglass fs-1 d-block mb-2"></i>
+                                    <p>Generating insights...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
+    <script src="lecturer.js"></script>
     <script>
         // Enhanced navigation with smooth scrolling
         document.querySelectorAll('.sidebar .nav-link').forEach(link => {
