@@ -1031,8 +1031,8 @@ function showPerformanceModal() {
             ${atRiskStudents.map(s => {
             const score = Number(s.score);
             const isCritical = score < 30;
-            const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
-            const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
+            const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';  // Light red
+            const badgeColor = isCritical ? '#dc3545' : '#e85d75';
             const label = isCritical ? 'CRITICAL' : 'MODERATE';
 
             // Get the data object (need to pass it from parent)
@@ -1336,7 +1336,7 @@ function filterRiskLevel(level) {
         if (level === 'critical') {
             activeBtn.classList.add('btn-danger', 'active');
         } else if (level === 'moderate') {
-            activeBtn.classList.add('btn-warning', 'active');
+            activeBtn.classList.add('btn-danger', 'active');
         } else {
             activeBtn.classList.add('btn-light', 'active');
         }
@@ -1377,8 +1377,8 @@ function renderRiskTable(students, filterLevel = 'all') {
             const isCritical = score < 30;
 
             // Consistent colors: Red for Critical, Orange for Moderate
-            const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
-            const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
+            const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';  // Light red
+            const badgeColor = isCritical ? '#dc3545' : '#e85d75';
             const riskLabel = isCritical ? 'CRITICAL' : 'MODERATE';
 
             return `
@@ -1394,7 +1394,7 @@ function renderRiskTable(students, filterLevel = 'all') {
             No students in this category
         </td></tr>`;
 
-    const alertColor = filterLevel === 'critical' ? '#dc3545' : (filterLevel === 'moderate' ? '#fd7e14' : '#0d6efd');
+    const alertColor = filterLevel === 'critical' ? '#dc3545' : (filterLevel === 'moderate' ? '#ffd6d9' : '#0d6efd');
     const alertBg = filterLevel === 'critical' ? '#f8d7da' : (filterLevel === 'moderate' ? '#ffe5d0' : '#cfe2ff');
 
     const message = students.length > 0 ?
@@ -1449,73 +1449,87 @@ function createDrillDownModal(title, content) {
     return modal;
 }
 
-// ============================================
-// NAVIGATION FUNCTIONS (LEVEL 2 PAGES)
-// ============================================
+/* ================================
+   UNIVERSAL NAVIGATION HELPERS
+================================= */
 
-// Navigate to At-Risk Page
+// Hide the entire dashboard content (fixes spacing issue)
+function hideDashboard() {
+    const dashboard = document.querySelector('.content');
+    if (dashboard) dashboard.style.display = 'none';
+}
+
+// Show the dashboard again
+function showDashboard() {
+    const dashboard = document.querySelector('.content');
+    if (dashboard) dashboard.style.display = 'block';
+}
+
+// Hide all level-2 pages
+function hideAllPages() {
+    document.getElementById('atRiskPage').style.display = 'none';
+    document.getElementById('engagementPage').style.display = 'none';
+    document.getElementById('performancePage').style.display = 'none';
+}
+
+
+/* ================================
+      PAGE NAVIGATION FUNCTIONS
+================================= */
+
+// ----- At-Risk Page -----
 function showAtRiskPage() {
-    // Hide main dashboard content
-    document.getElementById('dashboardOverview').style.display = 'none';
-    const mainPageHeader = document.querySelector('.content > .page-header');
-    if (mainPageHeader) mainPageHeader.style.display = 'none';
-    const moduleSelector = document.querySelector('.module-selector');
-    if (moduleSelector) moduleSelector.style.display = 'none';
-    const mainRowContent = document.querySelectorAll('.content > .row');
-    mainRowContent.forEach(row => row.style.display = 'none');
+    hideDashboard();           // FIX: removes top spacing
+    hideAllPages();
 
-    // Show at-risk page
-    document.getElementById('atRiskPage').style.display = 'block';
+    const p = document.getElementById('atRiskPage');
+    p.style.display = 'block';
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Populate the page with data
     if (window.currentLecturerData) {
         populateAtRiskPage(window.currentLecturerData);
     }
 }
 
-// Navigate to Engagement Page
+// ----- Engagement Page -----
 function showEngagementPage() {
-    // Hide main dashboard content
-    document.getElementById('dashboardOverview').style.display = 'none';
-    const mainPageHeader = document.querySelector('.content > .page-header');
-    if (mainPageHeader) mainPageHeader.style.display = 'none';
-    const moduleSelector = document.querySelector('.module-selector');
-    if (moduleSelector) moduleSelector.style.display = 'none';
-    const mainRowContent = document.querySelectorAll('.content > .row');
-    mainRowContent.forEach(row => row.style.display = 'none');
+    hideDashboard();
+    hideAllPages();
 
-    // Show engagement page
-    document.getElementById('engagementPage').style.display = 'block';
+    const p = document.getElementById('engagementPage');
+    p.style.display = 'block';
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Populate the page with data
     if (window.currentLecturerData) {
         populateEngagementPage(window.currentLecturerData);
     }
 }
 
-// Navigate back to dashboard
+// ----- Performance Page -----
+function showPerformancePage() {
+    hideDashboard();
+    hideAllPages();
+
+    const p = document.getElementById('performancePage');
+    p.style.display = 'block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (window.currentLecturerData) {
+        populatePerformancePage(window.currentLecturerData);
+    }
+}
+
+
+/* ================================
+        BACK TO DASHBOARD
+================================= */
+
 function backToDashboard() {
-    // Hide all level 2 pages
-    document.getElementById('atRiskPage').style.display = 'none';
-    document.getElementById('engagementPage').style.display = 'none';
-    document.getElementById('performancePage').style.display = 'none';
-
-    // Show main dashboard content
-    document.getElementById('dashboardOverview').style.display = 'block';
-    const mainPageHeader = document.querySelector('.content > .page-header');
-    if (mainPageHeader) mainPageHeader.style.display = 'flex';
-    const moduleSelector = document.querySelector('.module-selector');
-    if (moduleSelector) moduleSelector.style.display = 'block';
-    const mainRowContent = document.querySelectorAll('.content > .row');
-    mainRowContent.forEach(row => row.style.display = 'flex');
-
-    // Scroll to top
+    hideAllPages();
+    showDashboard();      // FIX: restores dashboard
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1595,8 +1609,8 @@ function renderAtRiskPageTable(students) {
     tbody.innerHTML = students.map(s => {
         const score = Number(s.score);
         const isCritical = score < 30;
-        const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
-        const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
+        const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';  // Light red
+        const badgeColor = isCritical ? '#dc3545' : '#e85d75';
         const label = isCritical ? 'CRITICAL' : 'MODERATE';
 
         // Calculate reasons
@@ -1649,9 +1663,44 @@ function populateEngagementPage(data) {
         filterEngagementPage('all');
     }
 
-    // Copy charts to engagement page
+    // Copy main participation charts
     copyChartToEngagementPage(data);
+
+    // ======================================================
+    // 🔥 FIX: MATERIAL ACCESS CHART FOR ENGAGEMENT PAGE
+    // ======================================================
+
+    if (data.materialUsage && Array.isArray(data.materialUsage.labels)) {
+        const ctx = document.getElementById('engagementPageMaterialChart');
+
+        // Destroy old chart (if exists)
+        if (window.engagementPageMaterialChart) {
+            window.engagementPageMaterialChart.destroy();
+        }
+
+        window.engagementPageMaterialChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.materialUsage.labels,
+                datasets: [{
+                    label: 'Material Access Count',
+                    data: data.materialUsage.values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
 }
+
 
 // Filter engagement page
 function filterEngagementPage(level) {
@@ -1726,6 +1775,7 @@ function renderEngagementPageTable(students) {
 }
 
 // Copy charts to engagement page
+// Copy charts to engagement page
 function copyChartToEngagementPage(data) {
     // Copy participation chart
     if (data.trends) {
@@ -1736,6 +1786,14 @@ function copyChartToEngagementPage(data) {
             }
         }, 500);
     }
+
+    // Copy material usage chart
+    setTimeout(() => {
+        const materialCtx = document.getElementById('engagementPageMaterialChart');
+        if (materialCtx && materialUsageChartInstance) {
+            new Chart(materialCtx, materialUsageChartInstance.config);
+        }
+    }, 600);
 
     // Copy time analysis
     const timeContainer = document.getElementById('engagementPageTimeAnalysis');
@@ -1960,9 +2018,9 @@ function viewStudentRiskDetails(student) {
     const isCritical = score < 30;
     const riskData = calculateRiskReasons(student, window.currentLecturerData);
 
-    const badgeColor = isCritical ? '#dc3545' : '#fd7e14';
+    const badgeColor = isCritical ? '#dc3545' : '#e85d75';  // Medium red
     const badgeLabel = isCritical ? 'CRITICAL' : 'MODERATE';
-    const bgColor = isCritical ? '#f8d7da' : '#ffe5d0';
+    const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';  // Light red
 
     const modalContent = `
         <div class="alert" style="background-color: ${bgColor}; border-color: ${badgeColor}; color: ${badgeColor};">

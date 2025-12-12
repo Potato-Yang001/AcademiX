@@ -615,6 +615,32 @@
             transform: translateX(3px);
             background-color: #f8f9fa !important;
         }
+
+        #atRiskPage,
+        #engagementPage,
+        #performancePage {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            /* add this */
+            position: relative;
+            z-index: 1;
+        }
+
+        #atRiskPage .page-header,
+        #engagementPage .page-header,
+        #performancePage .page-header {
+            margin: 0;
+            margin-bottom: 2rem;
+            padding: 1.75rem 2rem;
+            /* Remove top/side margins, keep bottom margin */
+        }
+
+        #atRiskPage .row,
+        #engagementPage .row,
+        #performancePage .row {
+            margin: 0 2rem 2rem 2rem;
+            /* Add margin to content rows */
+        }
     </style>
 </head>
 
@@ -817,8 +843,10 @@
                                                 id="riskAll">All</button>
                                             <button class="btn btn-light btn-sm" onclick="filterRiskLevel('critical')"
                                                 id="riskCritical">Critical (&lt;30%)</button>
-                                            <button class="btn btn-light btn-sm" onclick="filterRiskLevel('moderate')"
-                                                id="riskModerate">Moderate (30-39%)</button>
+                                            <button class="btn btn-outline-danger"
+                                                onclick="filterRiskPageLevel('moderate')" id="riskPageModerate">
+                                                Moderate (30-39%)
+                                            </button>
                                         </div>
                                         <button class="btn btn-sm btn-light" onclick="collapseSection('risk')"
                                             style="display: none;" id="closeRisk">
@@ -1095,7 +1123,7 @@
     <!-- ===================================================== -->
 
     <!-- At-Risk Students Page (Full Screen) -->
-    <div id="atRiskPage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
+    <div id="atRiskPage" style="display: none;">
         <div class="page-header">
             <button class="btn btn-outline-secondary" onclick="backToDashboard()">
                 <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
@@ -1127,7 +1155,7 @@
                                     id="riskPageCritical">
                                     Critical (&lt;30%)
                                 </button>
-                                <button class="btn btn-outline-warning" onclick="filterRiskPageLevel('moderate')"
+                                <button class="btn btn-outline-danger" onclick="filterRiskPageLevel('moderate')"
                                     id="riskPageModerate">
                                     Moderate (30-39%)
                                 </button>
@@ -1209,7 +1237,7 @@
     </div>
 
     <!-- Engagement/Attendance Page (Full Screen) -->
-    <div id="engagementPage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
+    <div id="engagementPage" style="display: none;">
         <div class="page-header">
             <button class="btn btn-outline-secondary" onclick="backToDashboard()">
                 <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
@@ -1337,133 +1365,132 @@
                 </div>
             </div>
         </div>
-        <!-- Performance Overview Page (Full Screen) -->
-        <div id="performancePage" style="display: none; margin-left: 260px; padding: 2rem; min-height: 100vh;">
-            <div class="page-header">
-                <button class="btn btn-outline-secondary" onclick="backToDashboard()">
-                    <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
-                </button>
-                <div style="flex: 1;">
-                    <h2><i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview</h2>
-                    <small class="text-muted">Academic achievement and assessment results</small>
+    </div>
+
+    <!-- Performance Overview Page (Full Screen) -->
+    <div id="performancePage" style="display: none;">
+        <div class="page-header">
+            <button class="btn btn-outline-secondary" onclick="backToDashboard()">
+                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+            </button>
+            <div style="flex: 1;">
+                <h2><i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview</h2>
+                <small class="text-muted">Academic achievement and assessment results</small>
+            </div>
+            <span class="badge bg-success" style="font-size: 1rem; padding: 0.5rem 1rem;"
+                id="performancePageAvg">0%</span>
+        </div>
+
+        <div class="row g-4">
+            <!-- Performance Summary Cards -->
+            <div class="col-12">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="card text-center border-success">
+                            <div class="card-body">
+                                <i class="bi bi-trophy-fill fs-1 text-success mb-2"></i>
+                                <h3 class="mb-0" id="perfPageDistinction">0</h3>
+                                <small class="text-muted">Distinction (80-100%)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-info">
+                            <div class="card-body">
+                                <i class="bi bi-award-fill fs-1 text-info mb-2"></i>
+                                <h3 class="mb-0" id="perfPageMerit">0</h3>
+                                <small class="text-muted">Merit (60-79%)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-warning">
+                            <div class="card-body">
+                                <i class="bi bi-check-circle-fill fs-1 text-warning mb-2"></i>
+                                <h3 class="mb-0" id="perfPagePass">0</h3>
+                                <small class="text-muted">Pass (40-59%)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-danger">
+                            <div class="card-body">
+                                <i class="bi bi-x-circle-fill fs-1 text-danger mb-2"></i>
+                                <h3 class="mb-0" id="perfPageFail">0</h3>
+                                <small class="text-muted">Fail (0-39%)</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <span class="badge bg-success" style="font-size: 1rem; padding: 0.5rem 1rem;"
-                    id="performancePageAvg">0%</span>
             </div>
 
-            <div class="row g-4">
-                <!-- Performance Summary Cards -->
-                <div class="col-12">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <div class="card text-center border-success">
-                                <div class="card-body">
-                                    <i class="bi bi-trophy-fill fs-1 text-success mb-2"></i>
-                                    <h3 class="mb-0" id="perfPageDistinction">0</h3>
-                                    <small class="text-muted">Distinction (80-100%)</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card text-center border-info">
-                                <div class="card-body">
-                                    <i class="bi bi-award-fill fs-1 text-info mb-2"></i>
-                                    <h3 class="mb-0" id="perfPageMerit">0</h3>
-                                    <small class="text-muted">Merit (60-79%)</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card text-center border-warning">
-                                <div class="card-body">
-                                    <i class="bi bi-check-circle-fill fs-1 text-warning mb-2"></i>
-                                    <h3 class="mb-0" id="perfPagePass">0</h3>
-                                    <small class="text-muted">Pass (40-59%)</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card text-center border-danger">
-                                <div class="card-body">
-                                    <i class="bi bi-x-circle-fill fs-1 text-danger mb-2"></i>
-                                    <h3 class="mb-0" id="perfPageFail">0</h3>
-                                    <small class="text-muted">Fail (0-39%)</small>
-                                </div>
-                            </div>
+            <!-- Top Performers Table -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-success">
+                    <div class="card-header" style="background-color: #198754; color: white;">
+                        <i class="bi bi-stars me-2"></i>
+                        <strong>Top Performers (70%+)</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Student ID</th>
+                                        <th>Score</th>
+                                        <th>Grade</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="perfPageTopTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-5">
+                                            <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
+                                            <p>Loading top performers...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Top Performers Table -->
-                <div class="col-12 col-lg-6">
-                    <div class="card border-success">
-                        <div class="card-header" style="background-color: #198754; color: white;">
-                            <i class="bi bi-stars me-2"></i>
-                            <strong>Top Performers (70%+)</strong>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive" style="max-height: 500px;">
-                                <table class="table table-hover">
-                                    <thead class="sticky-top bg-white">
-                                        <tr>
-                                            <th>Rank</th>
-                                            <th>Student ID</th>
-                                            <th>Score</th>
-                                            <th>Grade</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="perfPageTopTable">
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted py-5">
-                                                <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
-                                                <p>Loading top performers...</p>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+            <!-- Class Statistics -->
+            <div class="col-12 col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-bar-chart-fill me-2"></i>
+                        <strong>Performance Distribution</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="performancePageChart"></canvas>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Class Statistics -->
-                <div class="col-12 col-lg-6">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <i class="bi bi-bar-chart-fill me-2"></i>
-                            <strong>Performance Distribution</strong>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container" style="height: 400px;">
-                                <canvas id="performancePageChart"></canvas>
-                            </div>
-                        </div>
+            <!-- Teaching Insights -->
+            <div class="col-12">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-lightbulb-fill me-2"></i>
+                        <strong>Teaching Insights & Recommendations</strong>
                     </div>
-                </div>
-
-                <!-- Teaching Insights -->
-                <div class="col-12">
-                    <div class="card border-info">
-                        <div class="card-header bg-info text-white">
-                            <i class="bi bi-lightbulb-fill me-2"></i>
-                            <strong>Teaching Insights & Recommendations</strong>
-                        </div>
-                        <div class="card-body">
-                            <div id="performancePageInsights">
-                                <div class="text-center text-muted py-3">
-                                    <i class="bi bi-hourglass fs-1 d-block mb-2"></i>
-                                    <p>Generating insights...</p>
-                                </div>
+                    <div class="card-body">
+                        <div id="performancePageInsights">
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-hourglass fs-1 d-block mb-2"></i>
+                                <p>Generating insights...</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
-
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
