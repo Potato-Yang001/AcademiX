@@ -8,6 +8,68 @@ const studentsPerPage = 10;
 
 let coursesData = [];
 
+let currentPageView = 'main-dashboard';
+let selectedStudentCategory = null; // 'zero', 'one', 'twoPlus'
+
+let filteredStudentsForList = [];
+let currentStudentListPage = 1;
+const studentsPerListPage = 50;
+
+console.log('✅ assignStudentReason function exists?', typeof assignStudentReason);
+
+
+function navigateToPage(pageName) {
+    console.log('📍 Navigating to:', pageName);
+
+    // Hide all pages
+    document.querySelectorAll('.dashboard-page').forEach(page => {
+        page.style.display = 'none';
+    });
+
+    // Show selected page
+    const targetPage = document.getElementById(pageName);
+    if (targetPage) {
+        targetPage.style.display = 'block';
+        targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        currentPageView = pageName;
+    }
+
+    // Render content for the page
+    renderPageContent(pageName);
+}
+
+function renderPageContent(pageName) {
+    switch (pageName) {
+        case 'enrollment-breakdown':
+            renderEnrollmentBreakdown();
+            break;
+        case 'reasons-summary':
+            renderReasonsSummary();
+            break;
+        case 'student-list':
+            renderStudentList();
+            break;
+        case 'enrolment-by-course':
+            renderEnrolmentByCourse();
+            break;
+        case 'pass-fail-by-course':
+            renderPassFailByCourse();
+            break;
+        case 'courses':
+            // Ensure course-related tables are rendered when viewing the Courses page
+            try {
+                renderCoursePerformanceTable(null, window.globalCourseData || []);
+                renderSubjectsTable(window.allSubjectsData || allSubjectsData || []);
+                renderCapacityTable(window.allSubjectsData || allSubjectsData || []);
+                renderDemandTable(window.allSubjectsData || allSubjectsData || []);
+                updateInsightCards(window.globalCourseData || []);
+            } catch (e) {
+                console.warn('⚠️ Error rendering courses page:', e);
+            }
+            break;
+    }
+}
+
 // Add this function to load courses.csv
 async function loadCoursesData() {
     try {
@@ -47,6 +109,7 @@ async function loadCoursesData() {
         return [];
     }
 }
+
 
 function updateInsightCards(courseData) {
     console.log('🔍 === STARTING INSIGHT CARD ANALYSIS ===');
@@ -138,6 +201,35 @@ async function loadAdminData() {
         } else {
             allStudentsData = data.students;
         }
+
+        // ✅ SIMULATE MODULE REGISTRATION COUNTS
+        allStudentsData = allStudentsData.map(student => {
+            let moduleCount = 0;
+
+            // Calculate module count based on credits and status
+            if (student.final_result === 'Withdrawn') {
+                moduleCount = 0; // Withdrawn = not registered
+            } else if (student.studied_credits === 0) {
+                moduleCount = 0; // New students = not registered yet
+            } else if (student.studied_credits >= 90) {
+                moduleCount = 0; // Near graduation = completed, not currently registered
+            } else if (student.studied_credits < 30) {
+                // 70% have 0 modules (capacity issues), 30% have 1
+                moduleCount = Math.random() < 0.7 ? 0 : 1;
+            } else if (student.studied_credits < 60) {
+                moduleCount = 1; // Mid-range = 1 module
+            } else {
+                // 60+ credits = 2 or 3 modules
+                moduleCount = Math.random() < 0.6 ? 2 : 3;
+            }
+
+            return {
+                ...student,
+                current_modules: moduleCount
+            };
+        });
+
+        console.log('✅ Module counts assigned to students');
 
         const atRiskData = calculateAtRiskMetrics(data, allStudentsData);
 
@@ -239,10 +331,35 @@ function generateAllStudents(outcomes) {
 
     outcomeTypes.forEach(outcome => {
         for (let i = 0; i < outcome.count; i++) {
+            let credits;
+
+            // ✅ GENERATE REALISTIC CREDIT DISTRIBUTION
+            const rand = Math.random();
+
+            if (outcome.type === 'Withdrawn') {
+                // Withdrawn students: varied credits (some new, some mid-way)
+                if (rand < 0.3) credits = 0; // 30% new students
+                else if (rand < 0.6) credits = Math.floor(Math.random() * 30) + 15; // 30% mid-way
+                else credits = Math.floor(Math.random() * 60) + 30; // 40% further along
+            }
+            else if (outcome.type === 'Pass' || outcome.type === 'Distinction') {
+                // Successful students: higher credits
+                if (rand < 0.1) credits = Math.floor(Math.random() * 15); // 10% low credits (capacity issues)
+                else if (rand < 0.3) credits = Math.floor(Math.random() * 30) + 30; // 20% mid-range
+                else if (rand < 0.6) credits = Math.floor(Math.random() * 30) + 60; // 30% higher
+                else credits = Math.floor(Math.random() * 30) + 90; // 40% near graduation
+            }
+            else { // Fail
+                // Failed students: lower credits
+                if (rand < 0.4) credits = Math.floor(Math.random() * 30); // 40% low credits
+                else if (rand < 0.7) credits = Math.floor(Math.random() * 30) + 30; // 30% mid
+                else credits = Math.floor(Math.random() * 30) + 60; // 30% higher
+            }
+
             students.push({
                 id_student: String(studentId++),
                 modules_enrolled: 'Various',
-                studied_credits: Math.floor(Math.random() * 120) + 30,
+                studied_credits: credits,
                 final_result: outcome.type
             });
         }
@@ -2055,6 +2172,787 @@ function openParticipationModal() {
     document.getElementById("modalNotAttendingCount").textContent = notAttending;
 }
 
+// ================================
+// SPA VIEW SWITCHING
+// ================================
+const views = [
+    'overviewView',
+    'studentsView',
+    'studentListView',
+    'studentDetailView',
+    'coursesView',
+    'courseDetailView',
+    'capacityPlanningView'
+];
+
+function showView(viewId) {
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', id === viewId);
+    });
+}
+
+// ================================
+// CSV LOADER
+// ================================
+async function loadCSV(path) {
+    const res = await fetch(path);
+    const text = await res.text();
+    const [header, ...rows] = text.trim().split('\n');
+    const cols = header.split(',');
+
+    return rows.map(r => {
+        const values = r.split(',');
+        const obj = {};
+        cols.forEach((c, i) => obj[c] = values[i]);
+        return obj;
+    });
+}
+
+// ================================
+// DATA STORAGE
+// ================================
+let studentInfo = [];
+let studentRegistrations = [];
+let studentAssessments = [];
+let studentVle = [];
+let courses = [];
+
+let zeroModuleStudentIds = [];
+
+// ================================
+// OVERVIEW METRICS
+// ================================
+function computeOverviewMetrics() {
+    const activeStudents = new Set(
+        studentInfo.filter(s => s.final_result !== 'Withdrawn')
+            .map(s => s.id_student)
+    );
+
+    const moduleCount = {};
+    studentRegistrations.forEach(r => {
+        if (!activeStudents.has(r.id_student)) return;
+        moduleCount[r.id_student] = (moduleCount[r.id_student] || 0) + 1;
+    });
+
+    zeroModuleStudentIds = [];
+    activeStudents.forEach(id => {
+        if (!moduleCount[id]) zeroModuleStudentIds.push(id);
+    });
+
+    document.querySelector('#overviewView .kpi strong').textContent =
+        activeStudents.size;
+}
+
+// ================================
+// STUDENT LIST (0 MODULE)
+// ================================
+function renderZeroModuleStudentList() {
+    const tbody = document.querySelector('#studentListView tbody');
+    tbody.innerHTML = '';
+
+    zeroModuleStudentIds.forEach(id => {
+        const info = studentInfo.find(s => s.id_student === id);
+        if (!info) return;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+      <td>${id}</td>
+      <td>${info.age_band}</td>
+      <td>${info.highest_education}</td>
+      <td>${info.final_result}</td>
+    `;
+
+        tr.onclick = () => {
+            renderStudentDetail(id);
+            showView('studentDetailView');
+        };
+
+        tbody.appendChild(tr);
+    });
+}
+
+// ================================
+// LIVE RISK CALCULATION
+// ================================
+function calculateStudentRisk(studentId) {
+    let academic = 0, engagement = 0, load = 0;
+
+    const assessments = studentAssessments
+        .filter(a => a.id_student === studentId);
+
+    if (assessments.length > 0) {
+        const avg = assessments.reduce((s, a) => s + Number(a.score), 0) / assessments.length;
+        if (avg < 40) academic = 50;
+        else if (avg < 60) academic = 30;
+    }
+
+    const clicks = studentVle
+        .filter(v => v.id_student === studentId)
+        .reduce((s, v) => s + Number(v.sum_click), 0);
+
+    if (clicks < 50) engagement = 30;
+    else if (clicks < 150) engagement = 15;
+
+    const modules = studentRegistrations
+        .filter(r => r.id_student === studentId).length;
+
+    if (modules >= 3) load = 20;
+    else if (modules === 2) load = 10;
+
+    return {
+        total: academic + engagement + load,
+        academic,
+        engagement,
+        load
+    };
+}
+
+// ============================================
+// SHARED REASON ASSIGNMENT LOGIC
+// ============================================
+function assignStudentReason(student) {
+    let reason = '';
+    let reasonKey = '';
+
+    if (student.final_result === 'Withdrawn') {
+        reason = '⏸️ Deferred';
+        reasonKey = 'deferred';
+    }
+    else if (student.studied_credits === 0) {
+        reason = '🆕 New student';
+        reasonKey = 'new';
+    }
+    else if (student.studied_credits >= 90) {
+        reason = '🎓 Graduation phase';
+        reasonKey = 'graduation';
+    }
+    else if (student.studied_credits >= 60) {
+        reason = '🎓 Graduation phase';
+        reasonKey = 'graduation';
+    }
+    else if (student.studied_credits < 30 && (parseInt(student.id_student) % 10) < 4) {
+        reason = '⚠️ Capacity / timetable constraints';
+        reasonKey = 'capacity';
+    }
+    else if (student.studied_credits < 15) {
+        reason = '🆕 New student';
+        reasonKey = 'new';
+    }
+    else {
+        reason = '⚠️ Capacity / timetable constraints';
+        reasonKey = 'capacity';
+    }
+
+    console.log(`📝 Assigning to ${student.id_student}: reason="${reason}", key="${reasonKey}"`);
+
+    return { ...student, assignedReason: reason, reasonKey: reasonKey };
+}
+
+// ============================================
+// RENDER: ENROLLMENT BREAKDOWN (0/1/2+ modules)
+// ============================================
+function renderEnrollmentBreakdown() {
+    const container = document.getElementById('enrollmentBreakdownContent');
+    if (!container) return;
+
+    const totalStudents = allStudentsData.length;
+
+    // ✅ CALCULATE REAL DISTRIBUTION from module counts
+    const distribution = {
+        zero: allStudentsData.filter(s => s.current_modules === 0).length,
+        one: allStudentsData.filter(s => s.current_modules === 1).length,
+        twoPlus: allStudentsData.filter(s => s.current_modules >= 2).length
+    };
+
+    console.log('📊 Real distribution:', distribution);
+
+    const html = `
+        ${createModuleCard('zero', '0 Modules', distribution.zero, (distribution.zero / totalStudents * 100).toFixed(1), true)}
+        ${createModuleCard('one', '1 Module', distribution.one, (distribution.one / totalStudents * 100).toFixed(1), false)}
+        ${createModuleCard('twoPlus', '2+ Modules', distribution.twoPlus, (distribution.twoPlus / totalStudents * 100).toFixed(1), false)}
+    `;
+
+    container.innerHTML = html;
+}
+
+function createModuleCard(category, label, count, percentage, hasReasons) {
+    return `
+        <div class="card mb-3 border-primary" style="cursor: pointer; transition: all 0.3s;"
+             onclick="handleModuleClick('${category}', ${hasReasons})"
+             onmouseenter="this.style.transform='translateX(10px)'; this.style.backgroundColor='#f8f9ff'"
+             onmouseleave="this.style.transform='translateX(0)'; this.style.backgroundColor='white'">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">${label}</h4>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 fw-bold text-primary">${count.toLocaleString()} (${percentage}%)</span>
+                        <button class="btn btn-primary">View →</button>
+                    </div>
+                </div>
+                <div class="progress" style="height: 24px;">
+                    <div class="progress-bar bg-primary" style="width: ${percentage}%">
+                        <strong>${percentage}%</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function handleModuleClick(category, hasReasons) {
+    selectedStudentCategory = category;
+    if (hasReasons) {
+        navigateToPage('reasons-summary');
+    } else {
+        navigateToPage('student-list');
+    }
+}
+
+// ============================================
+// REASON FILTER FUNCTIONALITY
+// ============================================
+
+// Global variable to track selected reason filter
+window.selectedReasonFilter = null;
+
+function filterStudentsByReason(reasonKey) {
+    window.selectedReasonFilter = reasonKey;
+    selectedStudentCategory = 'zero'; // Ensure we're filtering zero module students
+    navigateToPage('student-list');
+}
+
+function clearReasonFilter() {
+    window.selectedReasonFilter = null;
+    renderStudentList(1);
+}
+
+function getReasonLabel(reasonKey) {
+    const labels = {
+        'new': '🆕 New students',
+        'graduation': '🎓 Graduation phase',
+        'deferred': '⏸️ Deferred',
+        'capacity': '⚠️ Capacity / timetable constraints'
+    };
+    return labels[reasonKey] || reasonKey;
+}
+
+// ============================================
+// RENDER: REASONS SUMMARY (Only for 0 modules)
+// ============================================
+function renderReasonsSummary() {
+    const container = document.getElementById('reasonsSummaryContent');
+    if (!container) return;
+
+    const zeroModuleStudents = allStudentsData.filter(s => s.current_modules === 0);
+    const total = zeroModuleStudents.length;
+
+    let newStudents = 0, graduationPhase = 0, deferred = 0, capacity = 0;
+
+    // ✅ Use the shared function
+    zeroModuleStudents.forEach(s => {
+        const assigned = assignStudentReason(s);
+
+        switch (assigned.reasonKey) {
+            case 'new': newStudents++; break;
+            case 'graduation': graduationPhase++; break;
+            case 'deferred': deferred++; break;
+            case 'capacity': capacity++; break;
+        }
+    });
+
+    const reasons = [
+        {
+            icon: '🆕', label: 'New students', count: newStudents,
+            percentage: ((newStudents / total) * 100).toFixed(1), key: 'new'
+        },
+        {
+            icon: '🎓', label: 'Graduation phase', count: graduationPhase,
+            percentage: ((graduationPhase / total) * 100).toFixed(1), key: 'graduation'
+        },
+        {
+            icon: '⏸️', label: 'Deferred', count: deferred,
+            percentage: ((deferred / total) * 100).toFixed(1), key: 'deferred'
+        },
+        {
+            icon: '⚠️', label: 'Capacity / timetable constraints', count: capacity,
+            percentage: ((capacity / total) * 100).toFixed(1), key: 'capacity'
+        }
+    ];
+
+    const html = `
+        <div class="mb-4">
+            <h5 class="text-muted">Summary of Reasons - Click to view students</h5>
+        </div>
+        
+        ${reasons.map(reason => `
+            <div class="card mb-3 border-secondary" 
+                 style="cursor: pointer; transition: all 0.3s;"
+                 onclick="filterStudentsByReason('${reason.key}')"
+                 onmouseenter="this.style.transform='translateX(10px)'; this.style.backgroundColor='#f8f9ff'"
+                 onmouseleave="this.style.transform='translateX(0)'; this.style.backgroundColor='white'">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">
+                            <span class="fs-4 me-2">${reason.icon}</span>
+                            ${reason.label}
+                        </h5>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fs-4 fw-bold text-primary">${reason.count.toLocaleString()} (${reason.percentage}%)</span>
+                            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); filterStudentsByReason('${reason.key}')">
+                                View Students →
+                            </button>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" style="width: ${reason.percentage}%; background: linear-gradient(90deg, #667eea, #764ba2)">
+                            ${reason.percentage}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('')}
+        
+        <div class="alert alert-info text-center mt-4">
+            <h4 class="mb-3">Total: ${total.toLocaleString()} students</h4>
+            <button class="btn btn-secondary btn-lg" onclick="selectedStudentCategory='zero'; window.selectedReasonFilter=null; navigateToPage('student-list')">
+                View All Students →
+            </button>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// ============================================
+// RENDER: STUDENT LIST
+// ============================================
+
+function renderStudentList(pageNumber = 1) {
+    const table = document.getElementById('studentListTable');
+    if (!table) return;
+
+    let students = [];
+
+    // ✅ FILTER by category first
+    if (selectedStudentCategory === 'zero') {
+        students = allStudentsData
+            .filter(s => s.current_modules === 0)
+            .map(s => assignStudentReason(s)); // ✅ Use shared function
+
+        console.log('👥 Students after assignment:', students.length);
+        console.log('🔍 Sample student BEFORE filter:', students[0]);
+        console.log('🔍 Does it have reasonKey?', students[0]?.reasonKey);
+
+        // ✅ Apply reason filter if selected
+        if (window.selectedReasonFilter) {
+            console.log(`🔍 BEFORE FILTER: ${students.length} students`);
+            students = students.filter(s => {
+                console.log(`Checking student ${s.id_student}: reasonKey="${s.reasonKey}", filter="${window.selectedReasonFilter}", match=${s.reasonKey === window.selectedReasonFilter}`);
+                return s.reasonKey === window.selectedReasonFilter;
+            });
+            console.log(`🔍 AFTER FILTER: ${students.length} students (filter: ${window.selectedReasonFilter})`);
+            console.log('Sample student:', students[0]); // Check if reasonKey exists
+        }
+    }
+    else if (selectedStudentCategory === 'one') {
+        students = allStudentsData
+            .filter(s => s.current_modules === 1)
+            .map(s => ({
+                ...s,
+                assignedReason: '📚 Part-time enrollment'
+            }));
+    }
+    else if (selectedStudentCategory === 'twoPlus') {
+        students = allStudentsData
+            .filter(s => s.current_modules >= 2)
+            .map(s => ({
+                ...s,
+                assignedReason: '✅ Full-time active learner'
+            }));
+    }
+
+    // ✅ Store full list for pagination
+    filteredStudentsForList = students;
+    currentStudentListPage = pageNumber;
+
+    // ✅ Calculate pagination
+    const totalStudents = students.length;
+    const totalPages = Math.ceil(totalStudents / studentsPerListPage);
+    const startIndex = (pageNumber - 1) * studentsPerListPage;
+    const endIndex = Math.min(startIndex + studentsPerListPage, totalStudents);
+    const paginatedStudents = students.slice(startIndex, endIndex);
+
+    console.log(`📋 Showing ${paginatedStudents.length} of ${totalStudents} students (page ${pageNumber}/${totalPages})`);
+
+    // ✅ Update pagination info
+    document.getElementById('studentListCount').textContent = totalStudents.toLocaleString();
+    document.getElementById('totalStudentsSpan').textContent = totalStudents.toLocaleString();
+    document.getElementById('showingRange').textContent = `${startIndex + 1}-${endIndex}`;
+    document.getElementById('currentPageSpan').textContent = pageNumber;
+    document.getElementById('currentPageSpan2').textContent = pageNumber;
+    document.getElementById('totalPagesSpan').textContent = totalPages;
+
+    // ✅ Enable/disable buttons
+    const prevBtns = document.querySelectorAll('#prevPageBtn, [onclick="changeStudentPage(-1)"]');
+    const nextBtns = document.querySelectorAll('#nextPageBtn, [onclick="changeStudentPage(1)"]');
+
+    prevBtns.forEach(btn => btn.disabled = pageNumber === 1);
+    nextBtns.forEach(btn => btn.disabled = pageNumber === totalPages);
+
+    if (paginatedStudents.length === 0) {
+        table.innerHTML = `
+            <thead class="table-light">
+                <tr>
+                    <th>Student ID</th>
+                    <th>Status</th>
+                    <th>Credits Earned</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" class="text-center py-4">
+                        <p class="text-muted">No students found</p>
+                    </td>
+                </tr>
+            </tbody>
+        `;
+        return;
+    }
+
+    const html = `
+        <thead class="table-light">
+            <tr>
+                <th>Student ID</th>
+                <th>Status</th>
+                <th>Credits Earned</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${paginatedStudents.map(student => {
+        const status = student.final_result === 'Withdrawn' ? 'Deferred' : 'Active';
+        const reason = student.assignedReason;
+
+        return `
+                    <tr style="cursor: pointer;" onclick="viewStudentProfile('${student.id_student}')"
+                        onmouseenter="this.style.backgroundColor='#f8f9ff'"
+                        onmouseleave="this.style.backgroundColor='white'">
+                        <td><strong class="text-primary">${student.id_student}</strong></td>
+                        <td>
+                            <span class="badge ${status === 'Active' ? 'bg-success' : 'bg-warning'}">
+                                ${status}
+                            </span>
+                        </td>
+                        <td><strong>${student.studied_credits || 0}</strong> / 120</td>
+                        <td>${reason}</td>
+                    </tr>
+                `;
+    }).join('')}
+        </tbody>
+    `;
+
+    table.innerHTML = html;
+}
+
+// ✅ ADD PAGINATION FUNCTION
+function changeStudentPage(direction) {
+    const totalPages = Math.ceil(filteredStudentsForList.length / studentsPerListPage);
+    let newPage = currentStudentListPage + direction;
+
+    if (newPage < 1) newPage = 1;
+    if (newPage > totalPages) newPage = totalPages;
+
+    renderStudentList(newPage);
+
+    // Scroll to top of table
+    document.getElementById('student-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ✅ ADD PAGINATION FUNCTION
+function changeStudentPage(direction) {
+    const totalPages = Math.ceil(filteredStudentsForList.length / studentsPerListPage);
+    let newPage = currentStudentListPage + direction;
+
+    if (newPage < 1) newPage = 1;
+    if (newPage > totalPages) newPage = totalPages;
+
+    renderStudentList(newPage);
+
+    // Scroll to top of table
+    document.getElementById('student-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function viewStudentProfile(studentId) {
+    window.selectedStudentId = studentId;
+    navigateToPage('student-profile');
+    renderStudentProfile(studentId);
+}
+
+function filterStudentList() {
+    const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#studentListTable tbody tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+// ============================================
+// RENDER: STUDENT PROFILE
+// ============================================
+function renderStudentProfile(studentId) {
+    const container = document.getElementById('studentProfileContent');
+    if (!container) return;
+
+    const student = allStudentsData.find(s => s.id_student === studentId);
+    if (!student) return;
+
+    const creditPercentage = ((student.studied_credits || 0) / 120 * 100).toFixed(0);
+    const reason = student.studied_credits === 0 ? 'New student' :
+        student.studied_credits >= 90 ? 'Graduation phase' :
+            student.final_result === 'Withdrawn' ? 'Deferred' :
+                'Active enrollment';
+
+    const html = `
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">📊 Academic Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Status:</strong> 
+                            <span class="badge ${student.final_result === 'Withdrawn' ? 'bg-warning' : 'bg-success'}">
+                                ${student.final_result === 'Withdrawn' ? 'Deferred' : 'Active'}
+                            </span>
+                        </p>
+                        <p><strong>Credits Earned:</strong> ${student.studied_credits || 0} / 120</p>
+                        <div class="progress mb-3" style="height: 25px;">
+                            <div class="progress-bar bg-primary" style="width: ${creditPercentage}%">
+                                <strong>${creditPercentage}%</strong>
+                            </div>
+                        </div>
+                        <p><strong>Completed Modules:</strong> ${Math.floor((student.studied_credits || 0) / 30)}</p>
+                        <p><strong>Current Registration:</strong> 0 modules</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0">💡 System Insight</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-warning">🎓 ${reason}</h6>
+                        <p class="mb-0 text-muted">
+                            Recommended action: ${reason === 'Graduation phase' ? 'Schedule graduation review' :
+            reason === 'New student' ? 'Send welcome package and orientation' :
+                'Contact for re-enrollment'
+        }
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">🔧 Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary me-2">
+                            <i class="bi bi-envelope"></i> Notify Student
+                        </button>
+                        <button class="btn btn-danger">
+                            <i class="bi bi-flag"></i> Flag for Academic Office
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// ============================================
+// RENDER: ENROLLMENT BY COURSE
+// ============================================
+function renderEnrolmentByCourse() {
+    const container = document.getElementById('enrolmentByCourseContent');
+    if (!container) return;
+
+    const enrolments = window.adminData?.enrolments || {};
+    const total = Object.values(enrolments).reduce((a, b) => a + b, 0);
+
+    const html = `
+        <p class="text-muted mb-4">Total Enrolments: <strong>${total.toLocaleString()}</strong></p>
+        
+        ${Object.entries(enrolments).map(([course, count]) => {
+        const percentage = (count / total * 100).toFixed(1);
+        return `
+                <div class="card mb-3 border-info" style="cursor: pointer; transition: all 0.3s;"
+                     onclick="viewCourseCapacity('${course}')"
+                     onmouseenter="this.style.transform='translateX(10px)'; this.style.backgroundColor='#f0f9ff'"
+                     onmouseleave="this.style.transform='translateX(0)'; this.style.backgroundColor='white'">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0 text-info">${course}</h5>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold">${count.toLocaleString()} (${percentage}%)</span>
+                                <button class="btn btn-info btn-sm">View Capacity →</button>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-info" style="width: ${percentage}%">
+                                ${percentage}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+    }).join('')}
+    `;
+
+    container.innerHTML = html;
+}
+
+function viewCourseCapacity(courseCode) {
+    // Navigate to capacity section (keep your existing capacity planning)
+    document.getElementById('capacity').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ============================================
+// RENDER: PASS/FAIL BY COURSE
+// ============================================
+function renderPassFailByCourse() {
+    const container = document.getElementById('passFailByCourseContent');
+    if (!container) return;
+
+    // Use your existing courseData
+    const courseData = window.globalCourseData || [];
+
+    const html = `
+        <p class="text-muted mb-4">Overall Pass Rate: <strong>${window.adminData?.passRate || 78.5}%</strong></p>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Course Code</th>
+                        <th>Pass Rate</th>
+                        <th>Fail Rate</th>
+                        <th>Visualization</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${courseData.map(course => `
+                        <tr>
+                            <td><strong class="text-success">${course.module}-${course.presentation}</strong></td>
+                            <td>
+                                <span class="badge bg-success">${course.passRate}%</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-danger">${course.failRate}%</span>
+                            </td>
+                            <td>
+                                <div class="d-flex" style="height: 30px; width: 200px;">
+                                    <div style="width: ${course.passRate}%; background: #28a745; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.8rem;">
+                                        ${course.passRate > 15 ? course.passRate + '%' : ''}
+                                    </div>
+                                    <div style="width: ${course.failRate}%; background: #dc3545; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.8rem;">
+                                        ${course.failRate > 15 ? course.failRate + '%' : ''}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// ================================
+// STUDENT DETAIL
+// ================================
+function renderStudentDetail(studentId) {
+    const info = studentInfo.find(s => s.id_student === studentId);
+    const risk = calculateStudentRisk(studentId);
+
+    document.querySelector('.student-id').textContent = studentId;
+    document.querySelector('.risk-score').textContent = risk.total;
+
+    document.querySelector('.risk-action').textContent =
+        risk.total > 60
+            ? 'Immediate intervention required'
+            : risk.total > 30
+                ? 'Monitor student progress'
+                : 'No action required';
+}
+
+// ================================
+// COURSES & CAPACITY PLANNING
+// ================================
+function renderCapacityPlanning() {
+    const container = document.querySelector('.capacity-summary');
+    container.innerHTML = '';
+
+    const demand = {};
+    studentRegistrations.forEach(r => {
+        demand[r.code_module] = (demand[r.code_module] || 0) + 1;
+    });
+
+    Object.keys(demand).forEach(code => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+      <strong>${code}</strong><br>
+      Registered: ${demand[code]}<br>
+      Action: Review capacity
+    `;
+        container.appendChild(div);
+    });
+}
+
+// ================================
+// INITIAL LOAD
+// ================================
+document.addEventListener('DOMContentLoaded', async () => {
+    showView('overviewView');
+
+    studentInfo = await loadCSV('studentInfo.csv');
+    studentRegistrations = await loadCSV('studentRegistration.csv');
+    studentAssessments = await loadCSV('studentAssessment.csv');
+    studentVle = await loadCSV('studentVle.csv');
+    courses = await loadCSV('courses.csv');
+
+    computeOverviewMetrics();
+
+    document.querySelector('[data-action="viewStudentList"]').onclick = () => {
+        renderZeroModuleStudentList();
+        showView('studentListView');
+    };
+});
+
+// ============================================
+// NAVIGATION: Back from Student List
+// ============================================
+function navigateBackFromStudentList() {
+    // If we came from reasons summary (0 modules), go back there
+    if (selectedStudentCategory === 'zero') {
+        navigateToPage('reasons-summary');
+    }
+    // Otherwise go back to enrollment breakdown
+    else {
+        navigateToPage('enrollment-breakdown');
+    }
+}
 
 // ============================================
 // ENHANCED INITIALIZATION
