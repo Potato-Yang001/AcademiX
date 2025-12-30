@@ -750,63 +750,60 @@
         <!-- Summary Cards with Drill-Down -->
         <div id="dashboardOverview">
             <div id="overview" class="row g-4 mb-4">
-                <!-- Card 1: Total Students -->
+                <!-- Card 1: Total Students (INFO ONLY) -->
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <div class="summary-card" onclick="drillDownTotalStudents()"
-                        title="Click to view student breakdown">
-                        <i class="bi bi-zoom-in zoom-icon"></i>
+                    <div class="summary-card" style="cursor: default;" title="Total enrolled students">
                         <div class="icon-wrapper" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                             <i class="bi bi-people-fill"></i>
                         </div>
                         <h5>Total Students</h5>
                         <div class="value" id="totalStudents">0</div>
-                        <small class="text-muted">Click to view breakdown</small>
+                        <small class="text-muted">Enrolled in this module</small>
                     </div>
                 </div>
 
-                <!-- Card 2: Average Class Score -->
+                <!-- Card 2: Average Class Score (INFO ONLY) -->
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <div class="summary-card" onclick="drillDownClassScore()" title="Click to view performance details">
-                        <i class="bi bi-zoom-in zoom-icon"></i>
+                    <div class="summary-card" style="cursor: default;" title="Average across all assessments">
                         <div class="icon-wrapper" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
                             <i class="bi bi-graph-up"></i>
                         </div>
                         <h5>Average Class Score</h5>
                         <div class="value" id="avgClassScore">0%</div>
                         <span class="badge bg-secondary" id="performanceBadge">-</span>
-                        <small class="text-muted d-block mt-2">Click for detailed view</small>
+                        <small class="text-muted d-block mt-2">Overall module performance</small>
                     </div>
                 </div>
 
-                <!-- Card 3: At-Risk Students (NEW CARD) -->
+                <!-- Card 3: Student Engagement & Attendance (CLICKABLE → Opens Engagement Page) -->
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <div class="summary-card" onclick="showAtRiskPage()" title="Click to view at-risk students">
+                    <div class="summary-card" onclick="showEngagementPage()"
+                        title="Click to view detailed engagement analysis">
                         <i class="bi bi-zoom-in zoom-icon"></i>
-                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #dc3545, #f8d7da);">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #17a2b8, #138496);">
+                            <i class="bi bi-activity"></i>
                         </div>
-                        <h5>At-Risk Students</h5>
-                        <div class="value" id="atRiskCount">0</div>
-                        <div class="small text-danger" id="atRiskBreakdown">
-                            <span id="criticalCount">0</span> Critical ·
-                            <span id="moderateCount">0</span> Moderate
-                        </div>
-                        <small class="text-muted d-block mt-2">Click for intervention plan</small>
+                        <h5>Student Engagement</h5>
+                        <div class="value" id="engagementSummary">--</div>
+                        <small class="text-muted">VLE activity & participation</small>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-hand-index me-1"></i>Click to view details →
+                        </small>
                     </div>
                 </div>
 
-                <!-- Card 4: Top Performers (SIMPLIFIED) -->
+                <!-- Card 4: Total Assessments (INFO ONLY) -->
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <div class="summary-card" onclick="drillDownTopPerformers()"
-                        title="Click to view all high performers">
-                        <i class="bi bi-zoom-in zoom-icon"></i>
-                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #198754, #d1e7dd);">
-                            <i class="bi bi-star-fill"></i>
+                    <div class="summary-card" style="cursor: default;" title="Total submissions tracked">
+                        <div class="icon-wrapper" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                            <i class="bi bi-clipboard-check"></i>
                         </div>
-                        <h5>Top Performers</h5>
-                        <div class="value" id="topPerformersCount">0</div>
-                        <small class="text-muted">Students scoring 70%+</small>
-                        <small class="text-muted d-block mt-2">Click to see all details</small>
+                        <h5>Total Assessments</h5>
+                        <div class="value" id="totalAssessments">0</div>
+                        <small class="text-muted">Submissions across all tasks</small>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle me-1"></i>Click chart bars for breakdown →
+                        </small>
                     </div>
                 </div>
             </div>
@@ -815,15 +812,34 @@
         <!-- Charts & Tables -->
         <div class="row g-4">
             <!-- Class Performance -->
+            <!-- Class Performance -->
             <div class="col-12 col-lg-6" id="class">
                 <div class="card">
                     <div class="card-header bg-primary text-white">
-                        <i class="bi bi-bar-chart-fill"></i>
-                        Class Performance Distribution
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-bar-chart-fill"></i>
+                                Class Performance Distribution
+                            </span>
+                            <span class="badge bg-light text-primary">
+                                <i class="bi bi-hand-index me-1"></i>Click bars to drill down
+                            </span>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
                             <canvas id="classChart"></canvas>
+                        </div>
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="bi bi-lightbulb me-2"></i>
+                            <strong>Interactive Chart:</strong> Click on any bar to view detailed student lists and
+                            analysis.
+                            <ul class="mb-0 mt-2 small">
+                                <li><span class="badge bg-danger me-1">Red</span> At-Risk Students (0-39%)</li>
+                                <li><span class="badge bg-warning me-1">Yellow</span> Pass Students (40-59%)</li>
+                                <li><span class="badge bg-primary me-1">Blue</span> Merit Students (60-79%)</li>
+                                <li><span class="badge bg-success me-1">Green</span> Distinction Students (80-100%)</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -1177,11 +1193,10 @@
                             <table class="table table-hover">
                                 <thead class="sticky-top bg-white">
                                     <tr>
-                                        <th style="width: 120px;">Student ID</th>
-                                        <th style="width: 100px;">Score</th>
-                                        <th style="width: 120px;">Risk Level</th>
-                                        <th>Reasons / Issues</th>
-                                        <th style="width: 150px;">Action</th>
+                                        <th style="width: 150px;">Student ID</th>
+                                        <th style="width: 120px;">Score</th>
+                                        <th style="width: 150px;">Risk Level</th>
+                                        <th style="width: 200px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="atRiskPageTable">
@@ -1193,42 +1208,6 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Engagement Warnings (Full Width) -->
-            <div class="col-12 col-lg-6">
-                <div class="card h-100">
-                    <div class="card-header bg-warning text-dark">
-                        <i class="bi bi-bell-fill me-2"></i>
-                        <strong>Engagement Warnings</strong>
-                    </div>
-                    <div class="card-body">
-                        <div id="atRiskPageEngagementWarnings">
-                            <div class="text-center text-muted py-5">
-                                <i class="bi bi-info-circle fs-1"></i>
-                                <p>Loading engagement data...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Assessment Deadlines (Full Width) -->
-            <div class="col-12 col-lg-6">
-                <div class="card h-100">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-calendar-check me-2"></i>
-                        <strong>Assessment Submission Status</strong>
-                    </div>
-                    <div class="card-body">
-                        <div id="atRiskPageDeadlines">
-                            <div class="text-center text-muted py-5">
-                                <i class="bi bi-calendar-x fs-1"></i>
-                                <p>Loading deadline data...</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1364,6 +1343,41 @@
                     </div>
                 </div>
             </div>
+            <!-- Engagement Warnings (Full Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-bell-fill me-2"></i>
+                        <strong>Engagement Warnings</strong>
+                    </div>
+                    <div class="card-body">
+                        <div id="engagementPageWarnings">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-info-circle fs-1"></i>
+                                <p>Loading engagement data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assessment Submission Status (Full Width) -->
+            <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-calendar-check me-2"></i>
+                        <strong>Assessment Submission Status</strong>
+                    </div>
+                    <div class="card-body">
+                        <div id="engagementPageDeadlines">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-calendar-x fs-1"></i>
+                                <p>Loading deadline data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1374,167 +1388,211 @@
                 <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
             </button>
             <div style="flex: 1;">
-                <h2><i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview</h2>
+                <h2 id="performancePageTitle">
+                    <i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview
+                </h2>
                 <small class="text-muted">Academic achievement and assessment results</small>
             </div>
+            <button class="btn btn-outline-primary me-2" onclick="clearPerformanceFilter()" id="clearPerfFilter"
+                style="display: none;">
+                <i class="bi bi-x-circle me-1"></i>Clear Filter
+            </button>
             <span class="badge bg-success" style="font-size: 1rem; padding: 0.5rem 1rem;"
                 id="performancePageAvg">0%</span>
         </div>
 
+        <!-- Filter Section (NEW) -->
         <div class="row g-4">
-            <!-- Performance Summary Cards -->
             <div class="col-12">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <div class="card text-center border-success">
-                            <div class="card-body">
-                                <i class="bi bi-trophy-fill fs-1 text-success mb-2"></i>
-                                <h3 class="mb-0" id="perfPageDistinction">0</h3>
-                                <small class="text-muted">Distinction (80-100%)</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center border-info">
-                            <div class="card-body">
-                                <i class="bi bi-award-fill fs-1 text-info mb-2"></i>
-                                <h3 class="mb-0" id="perfPageMerit">0</h3>
-                                <small class="text-muted">Merit (60-79%)</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center border-warning">
-                            <div class="card-body">
-                                <i class="bi bi-check-circle-fill fs-1 text-warning mb-2"></i>
-                                <h3 class="mb-0" id="perfPagePass">0</h3>
-                                <small class="text-muted">Pass (40-59%)</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center border-danger">
-                            <div class="card-body">
-                                <i class="bi bi-x-circle-fill fs-1 text-danger mb-2"></i>
-                                <h3 class="mb-0" id="perfPageFail">0</h3>
-                                <small class="text-muted">Fail (0-39%)</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Top Performers Table -->
-            <div class="col-12 col-lg-6">
-                <div class="card border-success">
-                    <div class="card-header" style="background-color: #198754; color: white;">
-                        <i class="bi bi-stars me-2"></i>
-                        <strong>Top Performers (70%+)</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive" style="max-height: 500px;">
-                            <table class="table table-hover">
-                                <thead class="sticky-top bg-white">
-                                    <tr>
-                                        <th>Rank</th>
-                                        <th>Student ID</th>
-                                        <th>Score</th>
-                                        <th>Grade</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="perfPageTopTable">
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-5">
-                                            <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
-                                            <p>Loading top performers...</p>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Class Statistics -->
-            <div class="col-12 col-lg-6">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-bar-chart-fill me-2"></i>
-                        <strong>Performance Distribution</strong>
-                    </div>
                     <div class="card-body">
-                        <div class="chart-container" style="height: 400px;">
-                            <canvas id="performancePageChart"></canvas>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <h5 class="mb-0">Filter by Performance Level</h5>
+                                <small class="text-muted">Click to view specific categories</small>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-secondary active" onclick="filterPerformanceLevel('all')"
+                                    id="perfFilterAll">
+                                    All Students
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="filterPerformanceLevel('fail')"
+                                    id="perfFilterFail">
+                                    Fail (0-39%)
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="filterPerformanceLevel('pass')"
+                                    id="perfFilterPass">
+                                    Pass (40-59%)
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="filterPerformanceLevel('merit')"
+                                    id="perfFilterMerit">
+                                    Merit (60-79%)
+                                </button>
+                                <button class="btn btn-outline-success" onclick="filterPerformanceLevel('distinction')"
+                                    id="perfFilterDistinction">
+                                    Distinction (80-100%)
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Teaching Insights -->
-            <div class="col-12">
-                <div class="card border-info">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-lightbulb-fill me-2"></i>
-                        <strong>Teaching Insights & Recommendations</strong>
+            <div class="row g-4">
+                <!-- Performance Summary Cards -->
+                <div class="col-12">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="card text-center border-success">
+                                <div class="card-body">
+                                    <i class="bi bi-trophy-fill fs-1 text-success mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageDistinction">0</h3>
+                                    <small class="text-muted">Distinction (80-100%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-info">
+                                <div class="card-body">
+                                    <i class="bi bi-award-fill fs-1 text-info mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageMerit">0</h3>
+                                    <small class="text-muted">Merit (60-79%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-warning">
+                                <div class="card-body">
+                                    <i class="bi bi-check-circle-fill fs-1 text-warning mb-2"></i>
+                                    <h3 class="mb-0" id="perfPagePass">0</h3>
+                                    <small class="text-muted">Pass (40-59%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-danger">
+                                <div class="card-body">
+                                    <i class="bi bi-x-circle-fill fs-1 text-danger mb-2"></i>
+                                    <h3 class="mb-0" id="perfPageFail">0</h3>
+                                    <small class="text-muted">Fail (0-39%)</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div id="performancePageInsights">
-                            <div class="text-center text-muted py-3">
-                                <i class="bi bi-hourglass fs-1 d-block mb-2"></i>
-                                <p>Generating insights...</p>
+                </div>
+
+                <!-- Top Performers Table -->
+                <div class="col-12">
+                    <div class="card border-success">
+                        <div class="card-header" style="background-color: #198754; color: white;"
+                            id="perfPageTableHeader">
+                            <i class="bi bi-stars me-2"></i>
+                            <strong>Top Performers (70%+)</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive" style="max-height: 600px;">
+                                <table class="table table-hover">
+                                    <thead class="sticky-top bg-white">
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Student ID</th>
+                                            <th>Score</th>
+                                            <th>Grade</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="perfPageTopTable">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-5">
+                                                <i class="bi bi-hourglass-split fs-1 d-block mb-3"></i>
+                                                <p>Loading top performers...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Statistics -->
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <i class="bi bi-bar-chart-fill me-2"></i>
+                            <strong>Performance Distribution</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height: 400px;">
+                                <canvas id="performancePageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teaching Insights -->
+                <div class="col-12">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-lightbulb-fill me-2"></i>
+                            <strong>Teaching Insights & Recommendations</strong>
+                        </div>
+                        <div class="card-body">
+                            <div id="performancePageInsights">
+                                <div class="text-center text-muted py-3">
+                                    <i class="bi bi-hourglass fs-1 d-block mb-2"></i>
+                                    <p>Generating insights...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
-    <script src="lecturer.js"></script>
-    <script>
-        // Enhanced navigation with smooth scrolling
-        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-            link.addEventListener('click', function (e) {
-                if (this.getAttribute('href').startsWith('#')) {
-                    e.preventDefault();
+        <!-- Scripts -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="script.js"></script>
+        <script src="lecturer.js"></script>
+        <script>
+            // Enhanced navigation with smooth scrolling
+            document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    if (this.getAttribute('href').startsWith('#')) {
+                        e.preventDefault();
 
-                    // Update active state
-                    document.querySelectorAll('.sidebar .nav-link')
-                        .forEach(l => l.classList.remove('active'));
-                    this.classList.add('active');
+                        // Update active state
+                        document.querySelectorAll('.sidebar .nav-link')
+                            .forEach(l => l.classList.remove('active'));
+                        this.classList.add('active');
 
-                    // Smooth scroll to section
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        // Smooth scroll to section
+                        const target = document.querySelector(this.getAttribute('href'));
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     }
-                }
+                });
             });
-        });
 
-        // Mobile menu toggle for responsive design
-        if (window.innerWidth <= 768) {
-            const sidebar = document.querySelector('.sidebar');
-            const menuBtn = document.createElement('button');
-            menuBtn.className = 'btn btn-success position-fixed top-0 start-0 m-3';
-            menuBtn.style.zIndex = '1001';
-            menuBtn.innerHTML = '<i class="bi bi-list"></i>';
-            menuBtn.onclick = () => sidebar.classList.toggle('show');
-            document.body.appendChild(menuBtn);
+            // Mobile menu toggle for responsive design
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const menuBtn = document.createElement('button');
+                menuBtn.className = 'btn btn-success position-fixed top-0 start-0 m-3';
+                menuBtn.style.zIndex = '1001';
+                menuBtn.innerHTML = '<i class="bi bi-list"></i>';
+                menuBtn.onclick = () => sidebar.classList.toggle('show');
+                document.body.appendChild(menuBtn);
 
-            // Close sidebar when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                }
-            });
-        }
-    </script>
+                // Close sidebar when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('show')) {
+                        sidebar.classList.remove('show');
+                    }
+                });
+            }
+        </script>
 </body>
 
 </html>

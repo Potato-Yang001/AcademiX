@@ -6,6 +6,7 @@ let currentRiskStudents = [];
 let allStudentScores = [];
 let participationChartInstance = null;
 let materialUsageChartInstance = null;
+let currentPerformanceFilter = null;
 let currentModuleCode = null;
 let currentRiskFilter = 'all';
 let currentFilteredStudents = [];
@@ -36,7 +37,7 @@ async function loadLecturerData(moduleCode) {
 
         renderLecturerSummary(data);
         renderClassPerformance(data.scores, moduleCode);
-        renderRiskStudents(data.scores);
+        renderRiskStudents(data.scores);//
         renderParticipationTrends(data.trends);
         renderModuleDeadlinesEnhanced(data, moduleCode);
         renderEngagementWarningsEnhanced(data, moduleCode);
@@ -59,10 +60,14 @@ async function loadLecturerData(moduleCode) {
 function renderLecturerSummary(data) {
     const scores = data.scores.map(s => Number(s.score));
     allStudentScores = data.scores;
-    const totalStudents = Array.isArray(data.students) ? data.students.length : data.students;
+
+    // FIX: Count unique students properly
+    const uniqueStudentIds = new Set(data.scores.map(s => s.id_student));
+    const totalStudents = uniqueStudentIds.size;
+
     const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
-    // Update Total Students
+    // Update Total Students (UNIQUE count)
     document.getElementById("totalStudents").innerText = totalStudents;
 
     // Update Average Score
@@ -86,19 +91,30 @@ function renderLecturerSummary(data) {
         }
     }
 
-    // NEW: Update At-Risk Students Card
-    const atRiskStudents = scores.filter(s => s < 40);
-    const criticalStudents = scores.filter(s => s < 30);
-    const moderateStudents = scores.filter(s => s >= 30 && s < 40);
+    // Update Total Assessments card (total submissions)
+    const totalAssessmentsEl = document.getElementById("totalAssessments");
+    if (totalAssessmentsEl) {
+        totalAssessmentsEl.innerText = scores.length;
+    }
 
-    document.getElementById("atRiskCount").innerText = atRiskStudents.length;
-    document.getElementById("criticalCount").innerText = criticalStudents.length;
-    document.getElementById("moderateCount").innerText = moderateStudents.length;
+    // Update Engagement Summary card
+    const engagementSummaryEl = document.getElementById("engagementSummary");
+    if (engagementSummaryEl && data.trends) {
+        const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
+        const avgClicks = totalClicks / data.trends.length;
 
-    // NEW: Update Top Performers Count
-    const topPerformers = scores.filter(s => s >= 70);
-    document.getElementById("topPerformersCount").innerText = topPerformers.length;
-}  // ← This closes renderLecturerSummary
+        let engagementLevel;
+        if (avgClicks > 50) {
+            engagementLevel = "High";
+        } else if (avgClicks > 25) {
+            engagementLevel = "Medium";
+        } else {
+            engagementLevel = "Low";
+        }
+
+        engagementSummaryEl.innerText = engagementLevel;
+    }
+}
 
 function drillDownAtRisk() {
     if (!allStudentScores || allStudentScores.length === 0) {
@@ -135,12 +151,29 @@ function drillDownAtRisk() {
 }
 
 function renderClassPerformance(scores, moduleCode) {
-    const perfScores = scores.map(s => Number(s.score));
+    const studentAverages = {};
+
+    scores.forEach(s => {
+        const studentId = s.id_student;
+        const score = Number(s.score);
+
+        if (!studentAverages[studentId]) {
+            studentAverages[studentId] = { total: 0, count: 0 };
+        }
+
+        studentAverages[studentId].total += score;
+        studentAverages[studentId].count += 1;
+    });
+
+    // Calculate average score for each student
+    const avgScores = Object.values(studentAverages).map(s => s.total / s.count);
+
+    // NOW count STUDENTS (not assessments) in each range
     const ranges = {
-        "0-39 (Fail)": perfScores.filter(s => s >= 0 && s <= 39).length,
-        "40-59 (Pass)": perfScores.filter(s => s >= 40 && s <= 59).length,
-        "60-79 (Merit)": perfScores.filter(s => s >= 60 && s <= 79).length,
-        "80-100 (Distinction)": perfScores.filter(s => s >= 80 && s <= 100).length
+        "0-39 (Fail)": avgScores.filter(s => s >= 0 && s <= 39).length,
+        "40-59 (Pass)": avgScores.filter(s => s >= 40 && s <= 59).length,
+        "60-79 (Merit)": avgScores.filter(s => s >= 60 && s <= 79).length,
+        "80-100 (Distinction)": avgScores.filter(s => s >= 80 && s <= 100).length
     };
 
     if (classChartInstance) classChartInstance.destroy();
@@ -168,7 +201,7 @@ function renderClassPerformance(scores, moduleCode) {
                 tooltip: {
                     callbacks: {
                         label: function (context) {
-                            return `Count: ${context.parsed.y}`;
+                            return `Count: ${context.parsed.y} students - Click to view details`;
                         }
                     }
                 }
@@ -176,20 +209,144 @@ function renderClassPerformance(scores, moduleCode) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    title: { display: true, text: "Number of Assessments" }
+                    title: { display: true, text: "Number of Students" }
                 },
                 x: {
                     title: { display: true, text: "Score Ranges" }
                 }
+            },
+            // 🔥 NEW: Make bars clickable
+            onClick: (event, activeElements) => {
+                if (activeElements.length > 0) {
+                    const index = activeElements[0].index;
+                    const scoreRange = Object.keys(ranges)[index];
+
+                    // Drill down based on which bar was clicked
+                    if (scoreRange === "0-39 (Fail)") {
+                        drillDownChartToAtRisk();
+                    } else if (scoreRange === "40-59 (Pass)") {
+                        drillDownChartToPerformance('pass');
+                    } else if (scoreRange === "60-79 (Merit)") {
+                        drillDownChartToPerformance('merit');
+                    } else if (scoreRange === "80-100 (Distinction)") {
+                        drillDownChartToPerformance('distinction');
+                    }
+                }
+            },
+            // 🔥 NEW: Show pointer cursor on hover
+            onHover: (event, chartElement) => {
+                event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
             }
         }
     });
 }
 
+// 🔥 NEW: Drill down from chart click to At-Risk page
+function drillDownChartToAtRisk() {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    // Navigate to At-Risk page
+    showAtRiskPage();
+
+    // Show all at-risk students by default
+    if (window.atRiskPageStudents) {
+        filterRiskPageLevel('all');
+    }
+}
+
+// 🔥 Drill down from chart click to Performance page
+function drillDownChartToPerformance(category) {
+    if (!allStudentScores || allStudentScores.length === 0) {
+        alert('Please load a module first');
+        return;
+    }
+
+    currentPerformanceFilter = category;
+    showPerformancePage();
+
+    setTimeout(() => {
+        if (window.currentLecturerData) {
+            populatePerformancePage(window.currentLecturerData, category);
+
+            // Update page title
+            const pageTitle = document.querySelector('#performancePage .page-header h2');
+            if (pageTitle && category) {
+                const categoryNames = {
+                    'fail': 'Fail (0-39%)',
+                    'pass': 'Pass (40-59%)',
+                    'merit': 'Merit (60-79%)',
+                    'distinction': 'Distinction (80-100%)'
+                };
+                pageTitle.innerHTML = `<i class="bi bi-graph-up text-success me-2"></i>${categoryNames[category]} Students`;
+            }
+
+            // Update table header
+            const tableHeader = document.getElementById('perfPageTableHeader');
+            if (tableHeader && category) {
+                const tableHeaderNames = {
+                    'fail': 'Fail Students (0-39%)',
+                    'pass': 'Pass Students (40-59%)',
+                    'merit': 'Merit Students (60-79%)',
+                    'distinction': 'Distinction Students (80-100%)'
+                };
+
+                const headerColors = {
+                    'fail': '#dc3545',
+                    'pass': '#ffc107',
+                    'merit': '#0d6efd',
+                    'distinction': '#198754'
+                };
+
+                tableHeader.style.backgroundColor = headerColors[category];
+                tableHeader.innerHTML = `<i class="bi bi-award me-2"></i><strong>${tableHeaderNames[category]}</strong>`;
+            }
+
+            // 🔥 NEW: Show ONLY the relevant filter button, hide others
+            const allButtons = ['perfFilterAll', 'perfFilterFail', 'perfFilterPass', 'perfFilterMerit', 'perfFilterDistinction'];
+
+            // Hide all filter buttons first
+            allButtons.forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.style.display = 'none';
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Show only "All Students" and the current category button
+            const allBtn = document.getElementById('perfFilterAll');
+            if (allBtn) {
+                allBtn.style.display = 'inline-block';
+                allBtn.textContent = `All ${categoryNames[category]} Students`;
+                allBtn.classList.add('active');
+            }
+
+            // Show clear filter button
+            const clearBtn = document.getElementById('clearPerfFilter');
+            if (clearBtn) clearBtn.style.display = 'inline-block';
+        }
+    }, 300);
+}
+
+// Make functions global
+window.drillDownChartToAtRisk = drillDownChartToAtRisk;
+window.drillDownChartToPerformance = drillDownChartToPerformance;
+
 function renderRiskStudents(scores) {
     currentRiskStudents = scores.filter(s => Number(s.score) < 40);
     currentRiskFilter = 'all';
-    filterRiskLevel('all');
+
+    // Prepare the data but keep card hidden
+    renderRiskTable(currentRiskStudents, 'all');
+
+    // Ensure the card stays hidden
+    const riskSection = document.getElementById('risk');
+    if (riskSection) {
+        riskSection.style.display = 'none';
+    }
 }
 
 function renderParticipationTrends(trends) {
@@ -384,13 +541,13 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
 
     if (failingCount > 0 && failingCount >= totalStudents * 0.2) {
         html += `
-            <div class="alert alert-danger d-flex align-items-start mb-3">
+            <div class="alert alert-danger d-flex align-items-start mb-3 engagement-alert engagement-critical" role="button" style="cursor:pointer" data-filter="all">
                 <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
                 <div class="flex-grow-1">
                     <strong class="d-block mb-1">🚨 CRITICAL: ${failingCount} Students Failing</strong>
                     <p class="mb-2 small">${highRiskPercent}% of class below passing grade in ${moduleCode}</p>
-                    <button class="btn btn-sm btn-danger" onclick="viewHighRiskStudents()">
-                        <i class="bi bi-eye me-1"></i>View Details
+                    <button class="btn btn-sm btn-danger btn-view-engagement" data-filter="all">
+                        <i class="bi bi-eye me-1"></i>View Engagement
                     </button>
                 </div>
             </div>
@@ -399,11 +556,16 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
 
     if (declining) {
         html += `
-            <div class="alert alert-warning d-flex align-items-start mb-3">
+            <div class="alert alert-warning d-flex align-items-start mb-3 engagement-alert engagement-declining" role="button" style="cursor:pointer" data-filter="low">
                 <i class="bi bi-graph-down fs-3 me-3"></i>
                 <div class="flex-grow-1">
                     <strong class="d-block mb-1">⚠️ Declining Engagement Detected</strong>
                     <p class="mb-0 small">Recent VLE activity (${avgRecentClicks.toFixed(0)} clicks) is 30% below average</p>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-warning btn-view-engagement" data-filter="low">
+                            <i class="bi bi-eye me-1"></i>View Engagement
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -411,11 +573,16 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
 
     if (lowOverall) {
         html += `
-            <div class="alert alert-info d-flex align-items-start mb-3">
+            <div class="alert alert-info d-flex align-items-start mb-3 engagement-alert engagement-low" role="button" style="cursor:pointer" data-filter="low">
                 <i class="bi bi-info-circle fs-3 me-3"></i>
                 <div class="flex-grow-1">
                     <strong class="d-block mb-1">ℹ️ Low Overall Engagement</strong>
                     <p class="mb-0 small">Average ${avgOverall.toFixed(0)} clicks per day. Consider adding interactive content.</p>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-info btn-view-engagement" data-filter="low">
+                            <i class="bi bi-eye me-1"></i>View Engagement
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -423,11 +590,16 @@ function renderEngagementWarningsEnhanced(data, moduleCode) {
 
     if (html === '') {
         html = `
-            <div class="alert alert-success d-flex align-items-center mb-0">
+            <div class="alert alert-success d-flex align-items-center mb-0 engagement-alert engagement-healthy" role="button" style="cursor:pointer" data-filter="high">
                 <i class="bi bi-check-circle-fill fs-3 me-3"></i>
                 <div>
                     <strong class="d-block mb-1">✅ Healthy Engagement!</strong>
                     <p class="mb-0 small">No major concerns in ${moduleCode}</p>
+                </div>
+                <div class="ms-auto">
+                    <button class="btn btn-sm btn-success btn-view-engagement" data-filter="high">
+                        <i class="bi bi-eye me-1"></i>View Engagement
+                    </button>
                 </div>
             </div>
         `;
@@ -780,9 +952,7 @@ function drillDownTotalStudents() {
         }
     });
 
-    setTimeout(() => {
-        showStudentBreakdownModal();
-    }, 800);
+    showStudentBreakdownModal();
 
     setTimeout(() => {
         showEngagementPage();
@@ -886,9 +1056,7 @@ function drillDownClassScore() {
         }
     });
 
-    setTimeout(() => {
-        showPerformanceModal();
-    }, 800);
+    showPerformancePage()
 }
 
 // Calculate WHY a student is at risk
@@ -1386,10 +1554,15 @@ function renderRiskTable(students, filterLevel = 'all') {
                 <td><strong>${s.id_student}</strong></td>
                 <td><span class="badge" style="background-color: ${badgeColor};">${s.score}%</span></td>
                 <td><span class="badge" style="background-color: ${badgeColor};">${riskLabel}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick='viewStudentRiskDetails(${JSON.stringify(s)})'>
+                        <i class="bi bi-eye"></i> View Details
+                    </button>
+                </td>
             </tr>
         `;
         }).join("") :
-        `<tr><td colspan="3" class="text-center text-muted py-3">
+        `<tr><td colspan="4" class="text-center text-muted py-3">
             <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
             No students in this category
         </td></tr>`;
@@ -1528,8 +1701,26 @@ function showPerformancePage() {
 ================================= */
 
 function backToDashboard() {
+    // Hide all drill-down pages
     hideAllPages();
-    showDashboard();      // FIX: restores dashboard
+
+    // Show main dashboard content
+    const dashboardOverview = document.getElementById('dashboardOverview');
+    if (dashboardOverview) dashboardOverview.style.display = 'block';
+
+    const mainPageHeader = document.querySelector('.content > .page-header');
+    if (mainPageHeader) mainPageHeader.style.display = 'flex';
+
+    const moduleSelector = document.querySelector('.module-selector');
+    if (moduleSelector) moduleSelector.style.display = 'block';
+
+    const mainRowContent = document.querySelectorAll('.content > .row');
+    mainRowContent.forEach(row => row.style.display = 'flex');
+
+    // Show the main content container
+    showDashboard();
+
+    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1550,18 +1741,6 @@ function populateAtRiskPage(data) {
 
     // Show all by default
     filterRiskPageLevel('all');
-
-    // Populate engagement warnings
-    const warningsContainer = document.getElementById('atRiskPageEngagementWarnings');
-    if (warningsContainer) {
-        warningsContainer.innerHTML = document.getElementById('engagementWarnings').innerHTML;
-    }
-
-    // Populate deadlines
-    const deadlinesContainer = document.getElementById('atRiskPageDeadlines');
-    if (deadlinesContainer) {
-        deadlinesContainer.innerHTML = document.getElementById('moduleDeadlines').innerHTML;
-    }
 }
 
 // Filter at-risk page by level
@@ -1609,36 +1788,26 @@ function renderAtRiskPageTable(students) {
     tbody.innerHTML = students.map(s => {
         const score = Number(s.score);
         const isCritical = score < 30;
-        const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';  // Light red
+        const bgColor = isCritical ? '#f8d7da' : '#ffd6d9';
         const badgeColor = isCritical ? '#dc3545' : '#e85d75';
         const label = isCritical ? 'CRITICAL' : 'MODERATE';
 
-        // Calculate reasons
-        const riskData = window.currentLecturerData ?
-            calculateRiskReasons(s, window.currentLecturerData) :
-            { reasons: ['Data unavailable'] };
-
         return `
-            <tr style="background-color: ${bgColor};">
-                <td><strong>${s.id_student}</strong></td>
-                <td>
-                    <span class="badge" style="background-color: ${badgeColor};">${s.score}%</span>
-                </td>
-                <td>
-                    <span class="badge" style="background-color: ${badgeColor};">${label}</span>
-                </td>
-                <td>
-                    <small>
-                        ${riskData.reasons.map(r => `<div class="mb-1">${r}</div>`).join('')}
-                    </small>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-primary" onclick='viewStudentRiskDetails(${JSON.stringify(s)})'>
-                        <i class="bi bi-eye"></i> View Details
-                    </button>
-                </td>
-            </tr>
-        `;
+        <tr style="background-color: ${bgColor};">
+            <td><strong>${s.id_student}</strong></td>
+            <td>
+                <span class="badge" style="background-color: ${badgeColor};">${s.score}%</span>
+            </td>
+            <td>
+                <span class="badge" style="background-color: ${badgeColor};">${label}</span>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick='viewStudentRiskDetails(${JSON.stringify(s)})'>
+                    <i class="bi bi-eye"></i> View Details
+                </button>
+            </td>
+        </tr>
+    `;
     }).join('');
 }
 
@@ -1666,18 +1835,24 @@ function populateEngagementPage(data) {
     // Copy main participation charts
     copyChartToEngagementPage(data);
 
-    // ======================================================
-    // 🔥 FIX: MATERIAL ACCESS CHART FOR ENGAGEMENT PAGE
-    // ======================================================
+    // 🔥 NEW: Populate Engagement Warnings
+    const warningsContainer = document.getElementById('engagementPageWarnings');
+    if (warningsContainer) {
+        warningsContainer.innerHTML = document.getElementById('engagementWarnings').innerHTML;
+    }
 
+    // 🔥 NEW: Populate Assessment Deadlines
+    const deadlinesContainer = document.getElementById('engagementPageDeadlines');
+    if (deadlinesContainer) {
+        deadlinesContainer.innerHTML = document.getElementById('moduleDeadlines').innerHTML;
+    }
+
+    // Material usage chart (if exists)
     if (data.materialUsage && Array.isArray(data.materialUsage.labels)) {
         const ctx = document.getElementById('engagementPageMaterialChart');
-
-        // Destroy old chart (if exists)
         if (window.engagementPageMaterialChart) {
             window.engagementPageMaterialChart.destroy();
         }
-
         window.engagementPageMaterialChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -1700,7 +1875,6 @@ function populateEngagementPage(data) {
         });
     }
 }
-
 
 // Filter engagement page
 function filterEngagementPage(level) {
@@ -1806,60 +1980,68 @@ function copyChartToEngagementPage(data) {
 // PERFORMANCE PAGE
 // ============================================
 function showPerformancePage() {
-    // Hide main dashboard content
-    document.getElementById('dashboardOverview').style.display = 'none';
-    const mainPageHeader = document.querySelector('.content > .page-header');
-    if (mainPageHeader) mainPageHeader.style.display = 'none';
-    const moduleSelector = document.querySelector('.module-selector');
-    if (moduleSelector) moduleSelector.style.display = 'none';
-    const mainRowContent = document.querySelectorAll('.content > .row');
-    mainRowContent.forEach(row => row.style.display = 'none');
+    hideDashboard();
+    hideAllPages();
 
-    // Show performance page
-    document.getElementById('performancePage').style.display = 'block';
+    const p = document.getElementById('performancePage');
+    p.style.display = 'block';
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Populate the page with data
     if (window.currentLecturerData) {
         populatePerformancePage(window.currentLecturerData);
     }
 }
 
-function populatePerformancePage(data) {
+function populatePerformancePage(data, filterCategory = null) {
     if (!data || !data.scores) return;
 
-    const scores = data.scores.map(s => Number(s.score));
-    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+    let scores = data.scores.map(s => Number(s.score));
+    let displayedStudents = data.scores;
+
+    // Filter by category if specified
+    if (filterCategory) {
+        if (filterCategory === 'pass') {
+            displayedStudents = data.scores.filter(s => Number(s.score) >= 40 && Number(s.score) < 60);
+        } else if (filterCategory === 'merit') {
+            displayedStudents = data.scores.filter(s => Number(s.score) >= 60 && Number(s.score) < 80);
+        } else if (filterCategory === 'distinction') {
+            displayedStudents = data.scores.filter(s => Number(s.score) >= 80);
+        }
+        scores = displayedStudents.map(s => Number(s.score));
+    }
+
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
     // Update average badge
     document.getElementById('performancePageAvg').textContent = avgScore.toFixed(1) + '%';
 
-    // Calculate distribution
-    const distinction = scores.filter(s => s >= 80).length;
-    const merit = scores.filter(s => s >= 60 && s < 80).length;
-    const pass = scores.filter(s => s >= 40 && s < 60).length;
-    const fail = scores.filter(s => s < 40).length;
+    // Calculate distribution (from ALL data, not filtered)
+    const allScores = data.scores.map(s => Number(s.score));
+    const distinction = allScores.filter(s => s >= 80).length;
+    const merit = allScores.filter(s => s >= 60 && s < 80).length;
+    const pass = allScores.filter(s => s >= 40 && s < 60).length;
+    const fail = allScores.filter(s => s < 40).length;
 
     document.getElementById('perfPageDistinction').textContent = distinction;
     document.getElementById('perfPageMerit').textContent = merit;
     document.getElementById('perfPagePass').textContent = pass;
     document.getElementById('perfPageFail').textContent = fail;
 
-    // Get top performers
-    const topPerformers = [...data.scores]
-        .filter(s => Number(s.score) >= 70)
-        .sort((a, b) => b.score - a.score);
+    // Get students for display (filtered or all students)
+    const studentsToShow = filterCategory
+        ? displayedStudents.sort((a, b) => b.score - a.score)
+        : data.scores.sort((a, b) => b.score - a.score); // Show ALL students, not just 70%+
 
-    // Render top performers table
-    renderPerformanceTopTable(topPerformers);
+    // Render table
+    renderPerformanceTopTable(studentsToShow);
 
     // Create performance chart
     createPerformanceChart(distinction, merit, pass, fail);
 
     // Generate insights
-    generatePerformanceInsights(data, avgScore, fail, scores.length);
+    const totalStudents = data.scores.length;
+    generatePerformanceInsights(data, avgScore, fail, totalStudents);
 }
 
 function renderPerformanceTopTable(students) {
@@ -1913,6 +2095,73 @@ function renderPerformanceTopTable(students) {
         `;
     }).join('');
 }
+
+// Clear performance filter and show all students
+function clearPerformanceFilter() {
+    currentPerformanceFilter = null;
+
+    if (window.currentLecturerData) {
+        // Reset page title
+        const pageTitle = document.querySelector('#performancePage .page-header h2');
+        if (pageTitle) {
+            pageTitle.innerHTML = '<i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview';
+        }
+
+        // Reset table header to default
+        const tableHeader = document.getElementById('perfPageTableHeader');
+        if (tableHeader) {
+            tableHeader.style.backgroundColor = '#198754';
+            tableHeader.innerHTML = '<i class="bi bi-table me-2"></i><strong>All Students</strong>';
+        }
+
+        // Hide clear filter button
+        const clearBtn = document.getElementById('clearPerfFilter');
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        // Repopulate with all data
+        populatePerformancePage(window.currentLecturerData, null);
+    }
+}
+
+// Filter performance page by level
+function filterPerformanceLevel(level) {
+    if (!window.currentLecturerData) return;
+
+    // Update button states
+    ['perfFilterAll', 'perfFilterFail', 'perfFilterPass', 'perfFilterMerit', 'perfFilterDistinction'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.remove('active');
+    });
+
+    const activeBtn = document.getElementById(`perfFilter${level.charAt(0).toUpperCase() + level.slice(1)}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Update page based on filter
+    if (level === 'all') {
+        // Show all students scoring 70%+
+        populatePerformancePage(window.currentLecturerData, null);
+
+        // Reset title
+        const pageTitle = document.querySelector('#performancePage .page-header h2');
+        if (pageTitle) {
+            pageTitle.innerHTML = '<i class="bi bi-graph-up text-success me-2"></i>Class Performance Overview';
+        }
+
+        // Reset table header
+        const tableHeader = document.getElementById('perfPageTableHeader');
+        if (tableHeader) {
+            tableHeader.style.backgroundColor = '#198754';
+            tableHeader.innerHTML = '<i class="bi bi-stars me-2"></i><strong>Top Performers (70%+)</strong>';
+        }
+    } else {
+        // Show filtered category
+        drillDownChartToPerformance(level);
+    }
+}
+
+// Make it global
+window.filterPerformanceLevel = filterPerformanceLevel;
+window.clearPerformanceFilter = clearPerformanceFilter;
 
 function createPerformanceChart(distinction, merit, pass, fail) {
     const ctx = document.getElementById('performancePageChart');
@@ -2679,6 +2928,33 @@ function showNotification(title, message, type = 'info') {
         notification.style.animation = 'slideIn 0.3s ease reverse';
         setTimeout(() => notification.remove(), 300);
     }, 5000);
+}
+
+// Attach delegated click handler for engagement alerts/buttons (one-time)
+if (!window._engagementClickHandlerAttached) {
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest && e.target.closest('.btn-view-engagement');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const filter = btn.dataset && btn.dataset.filter ? btn.dataset.filter : 'all';
+            console.log('Navigating to Engagement page (button) with filter:', filter);
+            showEngagementPage();
+            setTimeout(() => filterEngagementPage(filter), 400);
+            return;
+        }
+
+        const container = e.target.closest && e.target.closest('.engagement-alert');
+        if (container) {
+            e.preventDefault();
+            e.stopPropagation();
+            const filter = container.dataset && container.dataset.filter ? container.dataset.filter : 'all';
+            console.log('Navigating to Engagement page (container) with filter:', filter);
+            showEngagementPage();
+            setTimeout(() => filterEngagementPage(filter), 400);
+        }
+    });
+    window._engagementClickHandlerAttached = true;
 }
 
 // Make functions globally available
