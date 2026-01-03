@@ -1832,22 +1832,44 @@ function populateEngagementPage(data) {
         filterEngagementPage('all');
     }
 
-    // Copy main participation charts
+    // Calculate and populate Time Analysis metrics
+    if (data.trends && data.trends.length > 0) {
+        const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
+        const totalStudents = window.allStudentEngagement ? window.allStudentEngagement.length : 0;
+        const avgClicks = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
+        const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
+        const peakDay = peakTrend.day;
+
+        const avgClicksPerDay = totalClicks / data.trends.length;
+        const engagementLevel = avgClicksPerDay > 50 ? 'High' : avgClicksPerDay > 25 ? 'Medium' : 'Low';
+        const engagementColor = avgClicksPerDay > 50 ? 'text-success' : avgClicksPerDay > 25 ? 'text-warning' : 'text-danger';
+
+        // Update Time Analysis card metrics
+        document.getElementById('engPageTotalClicks2').textContent = totalClicks.toLocaleString();
+        document.getElementById('engPageAvgClicks2').textContent = avgClicks;
+        document.getElementById('engPagePeakDay').textContent = `Day ${peakDay}`;
+        document.getElementById('engPageEngagementLevel2').textContent = engagementLevel;
+
+        const engIcon = document.getElementById('engPageEngagementIcon');
+        engIcon.className = `bi bi-speedometer2 fs-1 mb-2 ${engagementColor}`;
+
+        // Update insight
+        const insightAlert = document.getElementById('engPageInsightAlert');
+        const insightText = document.getElementById('engPageInsightText');
+
+        insightText.textContent = `${avgClicks} avg interactions per student in ${currentModuleCode}. ${avgClicksPerDay < 25 ? '📉 Consider adding more interactive elements.' :
+            avgClicksPerDay > 50 ? '🎉 Excellent engagement!' : '📊 Moderate engagement.'
+            }`;
+
+        insightAlert.className = avgClicksPerDay > 50 ? 'alert alert-success mt-3 mb-0' :
+            avgClicksPerDay > 25 ? 'alert alert-warning mt-3 mb-0' :
+                'alert alert-danger mt-3 mb-0';
+    }
+
+    // Copy charts
     copyChartToEngagementPage(data);
 
-    // 🔥 NEW: Populate Engagement Warnings
-    const warningsContainer = document.getElementById('engagementPageWarnings');
-    if (warningsContainer) {
-        warningsContainer.innerHTML = document.getElementById('engagementWarnings').innerHTML;
-    }
-
-    // 🔥 NEW: Populate Assessment Deadlines
-    const deadlinesContainer = document.getElementById('engagementPageDeadlines');
-    if (deadlinesContainer) {
-        deadlinesContainer.innerHTML = document.getElementById('moduleDeadlines').innerHTML;
-    }
-
-    // Material usage chart (if exists)
+    // Material usage chart
     if (data.materialUsage && Array.isArray(data.materialUsage.labels)) {
         const ctx = document.getElementById('engagementPageMaterialChart');
         if (window.engagementPageMaterialChart) {
@@ -2522,6 +2544,44 @@ function viewStudentEngagementDetails(student) {
     modal.addEventListener('hidden.bs.modal', () => modal.remove());
 }
 
+// Toggle engagement cards visibility
+function toggleEngagementCards() {
+    const cardsContainer = document.getElementById('engagementCardsContainer');
+    const timeCard = document.getElementById('timeAnalysisCard');
+
+    if (cardsContainer.style.display === 'none') {
+        // Show the cards with animation
+        cardsContainer.style.display = 'block';
+        cardsContainer.style.opacity = '0';
+        cardsContainer.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            cardsContainer.style.transition = 'all 0.5s ease';
+            cardsContainer.style.opacity = '1';
+            cardsContainer.style.transform = 'translateY(0)';
+        }, 50);
+
+        // Add visual feedback to time analysis card
+        timeCard.style.borderColor = '#17a2b8';
+        timeCard.style.borderWidth = '3px';
+    } else {
+        // Hide the cards
+        cardsContainer.style.opacity = '0';
+        cardsContainer.style.transform = 'translateY(-20px)';
+
+        setTimeout(() => {
+            cardsContainer.style.display = 'none';
+        }, 300);
+
+        // Reset time analysis card style
+        timeCard.style.borderColor = '';
+        timeCard.style.borderWidth = '';
+    }
+}
+
+// Make function global
+window.toggleEngagementCards = toggleEngagementCards;
+
 // View performance student details
 function viewStudentPerformanceDetails(student) {
     const score = Number(student.score);
@@ -2957,6 +3017,54 @@ if (!window._engagementClickHandlerAttached) {
     window._engagementClickHandlerAttached = true;
 }
 
+// Show/Hide Engagement Details Section
+function showEngagementDetailsSection() {
+    const section = document.getElementById('engagementDetailsSection');
+    if (section) {
+        section.style.display = 'block';
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function hideEngagementDetailsSection() {
+    const section = document.getElementById('engagementDetailsSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
+// Show/Hide Participation Trends Section
+function showParticipationTrendsSection() {
+    const section = document.getElementById('participationTrendsSection');
+    if (section) {
+        section.style.display = 'block';
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function hideParticipationTrendsSection() {
+    const section = document.getElementById('participationTrendsSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
+// Show/Hide Material Access Section
+function showMaterialAccessSection() {
+    const section = document.getElementById('materialAccessSection');
+    if (section) {
+        section.style.display = 'block';
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function hideMaterialAccessSection() {
+    const section = document.getElementById('materialAccessSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
 // Make functions globally available
 window.drillDownTotalStudents = drillDownTotalStudents;
 window.drillDownClassScore = drillDownClassScore;
@@ -2983,3 +3091,9 @@ window.scheduleMeetingWithStudent = scheduleMeetingWithStudent;
 window.downloadICS = downloadICS;
 window.copyMeetingDetails = copyMeetingDetails;
 window.showNotification = showNotification;
+window.showEngagementDetailsSection = showEngagementDetailsSection;
+window.hideEngagementDetailsSection = hideEngagementDetailsSection;
+window.showParticipationTrendsSection = showParticipationTrendsSection;
+window.hideParticipationTrendsSection = hideParticipationTrendsSection;
+window.showMaterialAccessSection = showMaterialAccessSection;
+window.hideMaterialAccessSection = hideMaterialAccessSection;
