@@ -347,6 +347,76 @@
         .progress {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        /* Page Navigation System */
+        .page-container {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .page-container.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Stat Cards */
+        .stat-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card .icon {
+            font-size: 3.5rem;
+        }
+
+        /* Chart Click Interaction */
+        canvas {
+            cursor: pointer;
+        }
+
+        /* Module Items */
+        .module-item {
+            padding: 1.5rem;
+            border-left: 5px solid;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .module-item:hover {
+            transform: translateX(8px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .module-item.pass {
+            border-left-color: var(--color-pass);
+        }
+
+        .module-item.warning {
+            border-left-color: var(--color-warning);
+        }
+
+        .module-item.fail {
+            border-left-color: var(--color-fail);
+        }
     </style>
 </head>
 
@@ -442,182 +512,153 @@
         <!-- Dashboard Content Grid -->
         <div class="row g-4">
 
-            <!-- ============================================
-                 🎯 NEW: GOAL TRACKER (Shaffer's Self-Regulation)
-                 ============================================ -->
-            <div class="col-12 col-lg-4" id="goalTracker">
-                <div class="card h-100">
-                    <div class="card-header bg-success text-white">
-                        <i class="bi bi-bullseye me-2"></i>
-                        My Learning Goals
-                    </div>
-                    <div class="card-body" id="goalTrackerContent">
-                        <!-- Will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- 📅 UPCOMING DEADLINES -->
-            <div class="col-12 col-lg-4" id="deadlinesSection">
-                <div class="card h-100">
-                    <div class="card-header bg-warning text-dark">
-                        <i class="bi bi-calendar-event"></i>
-                        Upcoming Deadlines
-                    </div>
-                    <div class="card-body p-0">
-                        <ul id="deadlinesList" class="list-group list-group-flush">
-                            <li class="list-group-item text-center text-muted">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                Loading deadlines...
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 🔥 CONSISTENCY TRACKER -->
-            <div class="col-12 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header"
-                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                        <i class="bi bi-fire me-2"></i>
-                        Study Consistency Streak
-                    </div>
-                    <div class="card-body">
-                        <div id="consistencyTracker"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============================================
-                 🧮 NEW: WHAT-IF CALCULATOR (Shaffer's Planning)
-                 ============================================ -->
-            <div class="col-12" id="whatIfCalculator">
-                <div class="card">
-                    <div class="card-header bg-warning text-dark">
-                        <i class="bi bi-calculator me-2"></i>
-                        🧮 Grade Calculator: "What If?"
-                    </div>
-                    <div class="card-body" id="whatIfCalculatorContent">
-                        <!-- Will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- 📈 ACADEMIC PROGRESS CHART (WITH INTERACTIVE CONTROLS) -->
-            <div class="col-12 col-lg-8" id="progressSection">
-                <div class="card">
-                    <div class="card-header bg-success text-white" style="display: flex; align-items: center;">
-                        <div style="flex: 1;">
-                            <i class="bi bi-trophy"></i>
-                            Academic Performance Over Time
-                        </div>
-                        <div class="chart-controls d-inline-flex gap-2">
-                            <button class="btn btn-sm btn-light active" onclick="changeProgressChartType('line')"
-                                title="Line Chart">
-                                <i class="bi bi-graph-up"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light" onclick="changeProgressChartType('bar')"
-                                title="Bar Chart">
-                                <i class="bi bi-bar-chart"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light" onclick="changeProgressChartType('scatter')"
-                                title="Scatter Plot">
-                                <i class="bi bi-diagram-3"></i>
-                            </button>
+        </div><!-- Main Content -->
+        <!-- PAGE 1: MAIN DASHBOARD -->
+        <div id="page-main" class="page-container active">
+            <!-- 4 Main Cards -->
+            <div class="row g-4 mb-4">
+                <!-- Card 1: Overall Average -->
+                <div class="col-6 col-md-4">
+                    <div class="card stat-card" onclick="showModuleBreakdown()">
+                        <div class="card-body text-center">
+                            <div class="icon mb-3">📈</div>
+                            <h6 class="text-muted mb-2">Overall Average</h6>
+                            <h2 class="display-4 mb-2" id="overallGPA">--</h2>
+                            <span class="badge mb-3" id="overallStatus">Loading...</span>
+                            <button class="btn btn-primary w-100">View Details →</button>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="progressChart"></canvas>
+                </div>
+
+                <!-- Card 2: Urgent Actions -->
+                <div class="col-6 col-md-4">
+                    <div class="card stat-card" onclick="showAllDeadlines()">
+                        <div class="card-body text-center">
+                            <div class="icon mb-3">⚠️</div>
+                            <h6 class="text-muted mb-2">Urgent Actions</h6>
+                            <h2 class="display-4 mb-2" id="urgentCount">--</h2>
+                            <span class="badge bg-warning text-dark mb-3">
+                                < 7 days</span>
+                                    <button class="btn btn-warning w-100">View All →</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: At-Risk Modules -->
+                <div class="col-6 col-md-4">
+                    <div class="card stat-card" onclick="showAtRiskModules()">
+                        <div class="card-body text-center">
+                            <div class="icon mb-3">❌</div>
+                            <h6 class="text-muted mb-2">At-Risk Modules</h6>
+                            <h2 class="display-4 mb-2" id="atRiskCount">--</h2>
+                            <span class="badge bg-danger mb-3">Below 40%</span>
+                            <button class="btn btn-danger w-100">See Details →</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Study Streak -->
+                <div class="col-6 col-md-4">
+                    <div class="card stat-card" onclick="showStudyStreak()">
+                        <div class="card-body text-center">
+                            <div class="icon mb-3">🔥</div>
+                            <h6 class="text-muted mb-2">Study Streak</h6>
+                            <h2 class="display-4 mb-2" id="streakCount">--</h2>
+                            <span class="badge bg-info mb-3" id="streakBadge">Loading...</span>
+                            <button class="btn btn-info w-100">View Pattern →</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 📊 MODULE PROGRESS -->
-            <div class="col-12 col-lg-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-book"></i>
-                        Module Completion Progress
-                    </div>
-                    <div class="card-body">
-                        <div id="progressBars">
-                            <div class="text-center text-muted">Loading progress...</div>
-                        </div>
-                    </div>
-                </div>
+            <div class="text-center">
+                <button class="btn btn-lg btn-outline-light" onclick="showFullReport()">
+                    <i class="bi bi-file-earmark-text me-2"></i>
+                    View Full Performance Report →
+                </button>
             </div>
-
-            <!-- 📊 ENGAGEMENT STATISTICS (WITH INTERACTIVE CHART) -->
-            <div class="col-12" id="engagementSection">
-                <div class="card">
-                    <div class="card-header bg-secondary text-white" style="display: flex; align-items: center;">
-                        <div style="flex: 1;">
-                            <i class="bi bi-bar-chart-line"></i>
-                            VLE Engagement Statistics
-                        </div>
-                        <div class="chart-controls d-inline-flex gap-2">
-                            <button class="btn btn-sm btn-light active" onclick="changeActivityChartType('bar')"
-                                title="Bar Chart">
-                                <i class="bi bi-bar-chart-fill"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light" onclick="changeActivityChartType('line')"
-                                title="Line Chart">
-                                <i class="bi bi-graph-up"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="vleEngagement" class="mb-4">
-                            <div class="text-center text-muted">Loading engagement data...</div>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="activityChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 📢 RECENT UPDATES -->
-            <div class="col-12" id="recentUpdates">
-                <div class="card">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-bell"></i>
-                        Recent Updates
-                    </div>
-                    <div class="card-body">
-                        <div id="updatesFeed">
-                            <div class="text-center text-muted">Loading updates...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 👤 PERSONAL PROFILE (LOWEST PRIORITY) -->
-            <div class="col-12" id="profileSection">
-                <div class="card">
-                    <div class="card-header bg-dark text-white">
-                        <i class="bi bi-person-badge"></i>
-                        Personal Profile
-                    </div>
-                    <div class="card-body">
-                        <div id="studentProfile" class="profile-info">
-                            <div class="text-center loading">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <p class="mt-2 text-muted">Loading profile data...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div>
+
+        <!-- PAGE 2: MODULE BREAKDOWN -->
+        <div id="page-modules" class="page-container">
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">📚 Your Modules (<span id="totalModules">0</span> enrolled)</h4>
+                </div>
+                <div class="card-body">
+                    <div id="modulesList"></div>
+
+                    <!-- Interactive Performance Graph -->
+                    <h5 class="mt-4 mb-3">📊 Performance Trends (Click points for details)</h5>
+                    <div class="chart-container">
+                        <canvas id="performanceTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: MODULE DETAIL -->
+        <div id="page-module-detail" class="page-container">
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-modules')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Modules
+            </button>
+
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0" id="moduleDetailTitle"></h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Current Average</h6>
+                            <h1 class="display-3" id="moduleAvg"></h1>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Status</h6>
+                            <h2 id="moduleStatus"></h2>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Assessments</h6>
+                            <h2 id="moduleAssessmentCount"></h2>
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3">📊 Assessment Breakdown (Click bars for details)</h5>
+                    <div class="chart-container">
+                        <canvas id="assessmentBarChart"></canvas>
+                    </div>
+
+                    <h5 class="mt-4 mb-3">📉 Engagement Over Time (Click to see details)</h5>
+                    <div class="chart-container">
+                        <canvas id="engagementLineChart"></canvas>
+                    </div>
+
+                    <h5 class="mt-4 mb-3">💡 Recommended Actions</h5>
+                    <div id="recommendedActions"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4: ASSESSMENT DETAIL -->
+        <div id="page-assessment-detail" class="page-container">
+            <button class="btn btn-light mb-3" onclick="navigateToModuleDetail()">
+                <i class="bi bi-arrow-left me-2"></i> Back to Module Overview
+            </button>
+
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0" id="assessmentDetailTitle"></h4>
+                </div>
+                <div class="card-body" id="assessmentDetailContent"></div>
+            </div>
+        </div>
+
+        <!-- Additional pages: deadlines, at-risk, streak, etc. -->
+
     </div>
 
     <!-- Toast Container -->

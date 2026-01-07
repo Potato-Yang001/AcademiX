@@ -327,6 +327,8 @@ function drillDownChartToPerformance(category) {
             // Show clear filter button
             const clearBtn = document.getElementById('clearPerfFilter');
             if (clearBtn) clearBtn.style.display = 'inline-block';
+
+
         }
     }, 300);
 }
@@ -719,63 +721,113 @@ function renderTimeAnalysisEnhanced(data, moduleCode) {
         totalStudents = new Set(data.scores.map(s => s.id_student)).size;
     }
 
-    const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
-    const avgClicksPerStudent = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
+    // Calculate metrics
+    const totalClicks = data.trends ? data.trends.reduce((sum, t) => sum + t.clicks, 0) : 0;
+    // const totalStudents = window.allStudentEngagement ? window.allStudentEngagement.length : 0;
+    const avgClicks = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
+    const avgClicksPerDay = totalClicks / (data.trends ? data.trends.length : 1);
 
-    const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
-    const peakDay = peakTrend.day;
+    // Calculate peak day
+    let peakDay = 0;
+    if (data.trends && data.trends.length > 0) {
+        const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
+        peakDay = peakTrend.day;
+    }
 
-    const avgClicks = totalClicks / data.trends.length;
-    const engagementLevel = avgClicks > 50 ? 'High' : avgClicks > 25 ? 'Medium' : 'Low';
-    const engagementColor = avgClicks > 50 ? 'success' : avgClicks > 25 ? 'warning' : 'danger';
+    // Determine engagement level
+    let engagementLevel = 'Low';
+    let engagementColor = 'text-danger';
+    if (avgClicksPerDay > 50) {
+        engagementLevel = 'High';
+        engagementColor = 'text-success';
+    } else if (avgClicksPerDay > 25) {
+        engagementLevel = 'Medium';
+        engagementColor = 'text-warning';
+    }
 
-    container.innerHTML = `
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="card border-0 bg-light h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-mouse fs-1 text-primary mb-2"></i>
-                        <h3 class="mb-1">${totalClicks.toLocaleString()}</h3>
-                        <small class="text-muted">Total Interactions</small>
+    // Populate Time Analysis section with CLICKABLE cards
+    const timeContainer = document.getElementById('engagementPageTimeAnalysis');
+    if (timeContainer) {
+        container.innerHTML = `
+            <div class="row g-3">
+                <!-- Metric 1: Total Interactions (CLICKABLE) -->c
+                <div class="col-md-3">
+                    <div class="card border-0 bg-light h-100"
+                        style="cursor: pointer; transition: all 0.3s ease;"
+                        onclick="showEngagementDetailsSection()"
+                        onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.15)';"
+                        onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                        <div class="card-body text-center">
+                            <i class="bi bi-mouse fs-1 text-primary mb-2"></i>
+                            <h3 class="mb-1">${totalClicks.toLocaleString()}</h3>
+                            <small class="text-muted">Total Interactions</small>
+                            <div class="mt-2">
+                                <i class="bi bi-hand-index text-primary"></i>
+                                <small class="text-primary d-block">Click to view students</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metric 2: Avg per Student (CLICKABLE) -->
+                <div class="col-md-3">
+                    <div class="card border-0 bg-light h-100"
+                        style="cursor: pointer; transition: all 0.3s ease;"
+                        onclick="showParticipationTrendsSection()"
+                        onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.15)';"
+                        onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                        <div class="card-body text-center">
+                            <i class="bi bi-person-check fs-1 text-info mb-2"></i>
+                            <h3 class="mb-1">${avgClicks}</h3>
+                            <small class="text-muted">Avg per Student</small>
+                            <div class="mt-2">
+                                <i class="bi bi-hand-index text-info"></i>
+                                <small class="text-info d-block">Click to view trends</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metric 3: Peak Activity (CLICKABLE) -->
+                <div class="col-md-3">
+                    <div class="card border-0 bg-light h-100"
+                        style="cursor: pointer; transition: all 0.3s ease;"
+                        onclick="showMaterialAccessSection()"
+                        onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.15)';"
+                        onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-event fs-1 text-success mb-2"></i>
+                            <h3 class="mb-1">Day ${peakDay}</h3>
+                            <small class="text-muted">Peak Activity</small>
+                            <div class="mt-2">
+                                <i class="bi bi-hand-index text-success"></i>
+                                <small class="text-success d-block">Click to view materials</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metric 4: Engagement Level (NON-CLICKABLE) -->
+                <div class="col-md-3">
+                    <div class="card border-0 bg-light h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-speedometer2 fs-1 mb-2 ${engagementColor}"></i>
+                            <h3 class="mb-1">${engagementLevel}</h3>
+                            <small class="text-muted">Engagement</small>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card border-0 bg-light h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-person-check fs-1 text-info mb-2"></i>
-                        <h3 class="mb-1">${avgClicksPerStudent}</h3>
-                        <small class="text-muted">Avg per Student</small>
-                    </div>
-                </div>
+            
+            <!-- Insight Alert -->
+            <div class="alert ${avgClicksPerDay < 25 ? 'alert-danger' : avgClicksPerDay > 50 ? 'alert-success' : 'alert-warning'} mt-3 mb-0">
+                <i class="bi bi-lightbulb me-2"></i>
+                <strong>Insight:</strong> ${avgClicks} avg interactions per student in ${currentModuleCode}.
+                ${avgClicksPerDay < 25 ? ' 📉 Consider adding more interactive elements.' :
+                avgClicksPerDay > 50 ? ' 🎉 Excellent engagement!' : ' 📊 Moderate engagement.'}
             </div>
-            <div class="col-md-6">
-                <div class="card border-0 bg-light h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-calendar-event fs-1 text-success mb-2"></i>
-                        <h3 class="mb-1">Day ${peakDay}</h3>
-                        <small class="text-muted">Peak Activity</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card border-0 bg-light h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-speedometer2 fs-1 text-${engagementColor} mb-2"></i>
-                        <h3 class="mb-1">${engagementLevel}</h3>
-                        <small class="text-muted">Engagement</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="alert alert-${engagementColor} mt-3 mb-0">
-            <i class="bi bi-lightbulb me-2"></i>
-            <strong>Insight:</strong> ${avgClicksPerStudent} avg interactions per student in ${moduleCode}.
-            ${avgClicks < 25 ? ' 📉 Consider adding more interactive elements.' :
-            avgClicks > 50 ? ' 🎉 Excellent engagement!' : ' 📊 Moderate engagement.'}
-        </div>
-    `;
+        `;
+    }
 }
 
 function renderStudentEngagement(data, moduleCode) {
@@ -1371,6 +1423,72 @@ function collapseSection(sectionId) {
 // Make it globally available
 window.collapseSection = collapseSection;
 
+// Show only a single engagement-related section (accordion-like behavior)
+function showOnlyEngagementSection(sectionId) {
+    const sections = ['participation', 'materials', 'timeanalysis', 'engagement', 'studentEngagement'];
+
+    // If the requested section is already visible, collapse it (toggle)
+    const targetEl = document.getElementById(sectionId);
+    if (targetEl && window.getComputedStyle(targetEl).display !== 'none') {
+        collapseSection(sectionId);
+        return;
+    }
+
+    // Immediately hide all other sections (prevent overlap) without waiting for their transition
+    sections.forEach(id => {
+        if (id !== sectionId) {
+            const el = document.getElementById(id);
+            const closeBtn = document.getElementById(`close${id.charAt(0).toUpperCase() + id.slice(1)}`);
+            if (el) {
+                el.style.transition = '';
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(-20px)';
+                el.style.display = 'none';
+            }
+            if (closeBtn) closeBtn.style.display = 'none';
+        }
+    });
+
+    // Show the requested section with a small entrance animation and the close button
+    if (targetEl) {
+        const closeBtn = document.getElementById(`close${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+
+        targetEl.style.display = 'block';
+        if (closeBtn) closeBtn.style.display = 'inline-block';
+
+        // force a reflow so the transition works
+        targetEl.style.opacity = '0';
+        targetEl.style.transform = 'translateY(20px)';
+        void targetEl.offsetWidth;
+
+        setTimeout(() => {
+            targetEl.style.transition = 'all 0.35s ease';
+            targetEl.style.opacity = '1';
+            targetEl.style.transform = 'translateY(0)';
+            // Scroll into view so users see the opened section
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 20);
+    }
+}
+
+function showEngagementDetailsSection() {
+    showOnlyEngagementSection('studentEngagement');
+}
+
+function showParticipationTrendsSection() {
+    showOnlyEngagementSection('participation');
+}
+
+function showMaterialAccessSection() {
+    showOnlyEngagementSection('materials');
+}
+
+// Make the functions global so onclick handlers in the markup work
+window.showOnlyEngagementSection = showOnlyEngagementSection;
+window.showEngagementDetailsSection = showEngagementDetailsSection;
+window.showParticipationTrendsSection = showParticipationTrendsSection;
+window.showMaterialAccessSection = showMaterialAccessSection;
+
 // ============================================
 // EXPORT FUNCTIONS
 // ============================================
@@ -1597,6 +1715,34 @@ function sortRiskTable(by) {
     }
     renderRiskTable(currentFilteredStudents, currentRiskFilter);
 }
+
+// Sort At-Risk PAGE table (full page) — operates on the currently visible set
+function sortAtRiskPage(by) {
+    const list = window.currentAtRiskPageStudents || window.atRiskPageStudents || [];
+    if (!list || list.length === 0) return;
+
+    if (by === "id") {
+        list.sort((a, b) =>
+            sortDirection.id === "asc"
+                ? Number(a.id_student) - Number(b.id_student)
+                : Number(b.id_student) - Number(a.id_student)
+        );
+        sortDirection.id = sortDirection.id === "asc" ? "desc" : "asc";
+    } else if (by === "score") {
+        list.sort((a, b) =>
+            sortDirection.score === "asc"
+                ? Number(a.score) - Number(b.score)
+                : Number(b.score) - Number(a.score)
+        );
+        sortDirection.score = sortDirection.score === "asc" ? "desc" : "asc";
+    }
+
+    // Persist and re-render
+    window.currentAtRiskPageStudents = list;
+    renderAtRiskPageTable(list);
+}
+
+window.sortAtRiskPage = sortAtRiskPage;
 
 function createDrillDownModal(title, content) {
     const modal = document.createElement('div');
@@ -1828,73 +1974,138 @@ function populateEngagementPage(data) {
         document.getElementById('engagementPageCount').textContent =
             `${window.allStudentEngagement.length} Students`;
 
-        // Show all by default
-        filterEngagementPage('all');
-    }
-
-    // Calculate and populate Time Analysis metrics
-    if (data.trends && data.trends.length > 0) {
-        const totalClicks = data.trends.reduce((sum, t) => sum + t.clicks, 0);
-        const totalStudents = window.allStudentEngagement ? window.allStudentEngagement.length : 0;
+        // 🔥 Update the four summary cards
+        const totalStudents = window.allStudentEngagement.length;
+        const totalClicks = data.trends ? data.trends.reduce((sum, t) => sum + t.clicks, 0) : 0;
         const avgClicks = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
-        const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
-        const peakDay = peakTrend.day;
 
-        const avgClicksPerDay = totalClicks / data.trends.length;
-        const engagementLevel = avgClicksPerDay > 50 ? 'High' : avgClicksPerDay > 25 ? 'Medium' : 'Low';
-        const engagementColor = avgClicksPerDay > 50 ? 'text-success' : avgClicksPerDay > 25 ? 'text-warning' : 'text-danger';
+        // Calculate engagement level
+        const avgClicksPerDay = totalClicks / (data.trends ? data.trends.length : 1);
+        let engagementLevel = 'Low';
+        if (avgClicksPerDay > 50) engagementLevel = 'High';
+        else if (avgClicksPerDay > 25) engagementLevel = 'Medium';
 
-        // Update Time Analysis card metrics
-        document.getElementById('engPageTotalClicks2').textContent = totalClicks.toLocaleString();
-        document.getElementById('engPageAvgClicks2').textContent = avgClicks;
-        document.getElementById('engPagePeakDay').textContent = `Day ${peakDay}`;
-        document.getElementById('engPageEngagementLevel2').textContent = engagementLevel;
+        // Update card values
+        const totalStudentsEl = document.getElementById('engPageTotalStudents');
+        if (totalStudentsEl) totalStudentsEl.textContent = totalStudents;
 
-        const engIcon = document.getElementById('engPageEngagementIcon');
-        engIcon.className = `bi bi-speedometer2 fs-1 mb-2 ${engagementColor}`;
+        const totalClicksEl = document.getElementById('engPageTotalClicks');
+        if (totalClicksEl) totalClicksEl.textContent = totalClicks.toLocaleString();
 
-        // Update insight
-        const insightAlert = document.getElementById('engPageInsightAlert');
-        const insightText = document.getElementById('engPageInsightText');
+        const avgClicksEl = document.getElementById('engPageAvgClicks');
+        if (avgClicksEl) avgClicksEl.textContent = avgClicks;
 
-        insightText.textContent = `${avgClicks} avg interactions per student in ${currentModuleCode}. ${avgClicksPerDay < 25 ? '📉 Consider adding more interactive elements.' :
-            avgClicksPerDay > 50 ? '🎉 Excellent engagement!' : '📊 Moderate engagement.'
-            }`;
-
-        insightAlert.className = avgClicksPerDay > 50 ? 'alert alert-success mt-3 mb-0' :
-            avgClicksPerDay > 25 ? 'alert alert-warning mt-3 mb-0' :
-                'alert alert-danger mt-3 mb-0';
+        const engagementLevelEl = document.getElementById('engPageEngagementLevel');
+        if (engagementLevelEl) engagementLevelEl.textContent = engagementLevel;
     }
 
-    // Copy charts
-    copyChartToEngagementPage(data);
+    // 🔥 UPDATE: Also populate the Time Analysis clickable cards
+    const totalClicks = data.trends ? data.trends.reduce((sum, t) => sum + t.clicks, 0) : 0;
+    const totalStudents = window.allStudentEngagement ? window.allStudentEngagement.length : 0;
+    const avgClicks = totalStudents > 0 ? (totalClicks / totalStudents).toFixed(1) : '0';
+
+    // Update Time Analysis metrics (the clickable ones)
+    const totalClicks2El = document.getElementById('engPageTotalClicks2');
+    if (totalClicks2El) totalClicks2El.textContent = totalClicks.toLocaleString();
+
+    const avgClicks2El = document.getElementById('engPageAvgClicks2');
+    if (avgClicks2El) avgClicks2El.textContent = avgClicks;
+
+    // Calculate peak day
+    if (data.trends && data.trends.length > 0) {
+        const peakTrend = data.trends.reduce((max, t) => t.clicks > max.clicks ? t : max, data.trends[0]);
+        const peakDayEl = document.getElementById('engPagePeakDay');
+        if (peakDayEl) peakDayEl.textContent = `Day ${peakTrend.day}`;
+    }
+
+    // Update engagement level with icon color
+    const avgClicksPerDay = totalClicks / (data.trends ? data.trends.length : 1);
+    let engagementLevel = 'Low';
+    let engagementColor = 'text-danger';
+    if (avgClicksPerDay > 50) {
+        engagementLevel = 'High';
+        engagementColor = 'text-success';
+    } else if (avgClicksPerDay > 25) {
+        engagementLevel = 'Medium';
+        engagementColor = 'text-warning';
+    }
+
+    const engLevel2El = document.getElementById('engPageEngagementLevel2');
+    if (engLevel2El) engLevel2El.textContent = engagementLevel;
+
+    const engIconEl = document.getElementById('engPageEngagementIcon');
+    if (engIconEl) {
+        engIconEl.className = `bi bi-speedometer2 fs-1 mb-2 ${engagementColor}`;
+    }
+
+    // Update insight alert
+    const insightAlertEl = document.getElementById('engPageInsightAlert');
+    const insightTextEl = document.getElementById('engPageInsightText');
+    if (insightAlertEl && insightTextEl) {
+        if (avgClicksPerDay < 25) {
+            insightAlertEl.className = 'alert alert-danger mt-3 mb-0';
+            insightTextEl.textContent = `${avgClicks} avg interactions per student. 📉 Consider adding more interactive elements.`;
+        } else if (avgClicksPerDay > 50) {
+            insightAlertEl.className = 'alert alert-success mt-3 mb-0';
+            insightTextEl.textContent = `${avgClicks} avg interactions per student. 🎉 Excellent engagement!`;
+        } else {
+            insightAlertEl.className = 'alert alert-warning mt-3 mb-0';
+            insightTextEl.textContent = `${avgClicks} avg interactions per student. 📊 Moderate engagement.`;
+        }
+    }
+
+    // Copy time analysis
+    const timeContainer = document.getElementById('engagementPageTimeAnalysis');
+    if (timeContainer) {
+        const originalTime = document.getElementById('timeAnalysis');
+        if (originalTime) {
+            timeContainer.innerHTML = originalTime.innerHTML;
+        }
+    }
+
+    // 🔥 FIX: Destroy existing charts before creating new ones
+    if (window.engagementPageMaterialChartInstance) {
+        window.engagementPageMaterialChartInstance.destroy();
+    }
+    if (window.engagementPageParticipationChartInstance) {
+        window.engagementPageParticipationChartInstance.destroy();
+    }
 
     // Material usage chart
-    if (data.materialUsage && Array.isArray(data.materialUsage.labels)) {
-        const ctx = document.getElementById('engagementPageMaterialChart');
-        if (window.engagementPageMaterialChart) {
-            window.engagementPageMaterialChart.destroy();
-        }
-        window.engagementPageMaterialChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: data.materialUsage.labels,
-                datasets: [{
-                    label: 'Material Access Count',
-                    data: data.materialUsage.values,
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true }
-                }
+    if (materialUsageChartInstance) {
+        setTimeout(() => {
+            const ctx = document.getElementById('engagementPageMaterialChart');
+            if (ctx) {
+                window.engagementPageMaterialChartInstance = new Chart(ctx, {
+                    type: materialUsageChartInstance.config.type,
+                    data: JSON.parse(JSON.stringify(materialUsageChartInstance.config.data)),
+                    options: materialUsageChartInstance.config.options
+                });
             }
-        });
+        }, 600);
+    }
+
+    // Participation chart
+    if (participationChartInstance) {
+        setTimeout(() => {
+            const ctx = document.getElementById('engagementPageChart');
+            if (ctx) {
+                window.engagementPageParticipationChartInstance = new Chart(ctx, {
+                    type: participationChartInstance.config.type,
+                    data: JSON.parse(JSON.stringify(participationChartInstance.config.data)),
+                    options: participationChartInstance.config.options
+                });
+            }
+        }, 500);
+    }
+
+    // Pre-render engagement details data (hidden, but ready)
+    if (window.engagementPageStudents) {
+        // Store the current filter
+        const currentFilter = window.currentEngagementFilter || 'all';
+
+        // Silently populate the table (it's hidden anyway)
+        filterEngagementPage(currentFilter);
     }
 }
 
@@ -2018,6 +2229,8 @@ function showPerformancePage() {
 function populatePerformancePage(data, filterCategory = null) {
     if (!data || !data.scores) return;
 
+
+
     let scores = data.scores.map(s => Number(s.score));
     let displayedStudents = data.scores;
 
@@ -2045,18 +2258,18 @@ function populatePerformancePage(data, filterCategory = null) {
     const pass = allScores.filter(s => s >= 40 && s < 60).length;
     const fail = allScores.filter(s => s < 40).length;
 
-    document.getElementById('perfPageDistinction').textContent = distinction;
-    document.getElementById('perfPageMerit').textContent = merit;
-    document.getElementById('perfPagePass').textContent = pass;
-    document.getElementById('perfPageFail').textContent = fail;
+
 
     // Get students for display (filtered or all students)
     const studentsToShow = filterCategory
         ? displayedStudents.sort((a, b) => b.score - a.score)
         : data.scores.sort((a, b) => b.score - a.score); // Show ALL students, not just 70%+
 
+    // Persist current list for sorting and render
+    window.currentPerfStudents = studentsToShow;
+
     // Render table
-    renderPerformanceTopTable(studentsToShow);
+    renderPerformanceTopTable(window.currentPerfStudents);
 
     // Create performance chart
     createPerformanceChart(distinction, merit, pass, fail);
@@ -2118,6 +2331,33 @@ function renderPerformanceTopTable(students) {
     }).join('');
 }
 
+// Sorting for Performance tables (Top / Pass / Merit / Distinction)
+function sortPerformanceTable(by) {
+    const list = window.currentPerfStudents || [];
+    if (!list || list.length === 0) return;
+
+    if (by === 'id') {
+        list.sort((a, b) =>
+            sortDirection.id === 'asc'
+                ? Number(a.id_student) - Number(b.id_student)
+                : Number(b.id_student) - Number(a.id_student)
+        );
+        sortDirection.id = sortDirection.id === 'asc' ? 'desc' : 'asc';
+    } else if (by === 'score') {
+        list.sort((a, b) =>
+            sortDirection.score === 'asc'
+                ? Number(a.score) - Number(b.score)
+                : Number(b.score) - Number(a.score)
+        );
+        sortDirection.score = sortDirection.score === 'asc' ? 'desc' : 'asc';
+    }
+
+    window.currentPerfStudents = list;
+    renderPerformanceTopTable(list);
+}
+
+window.sortPerformanceTable = sortPerformanceTable;
+
 // Clear performance filter and show all students
 function clearPerformanceFilter() {
     currentPerformanceFilter = null;
@@ -2139,6 +2379,8 @@ function clearPerformanceFilter() {
         // Hide clear filter button
         const clearBtn = document.getElementById('clearPerfFilter');
         if (clearBtn) clearBtn.style.display = 'none';
+
+
 
         // Repopulate with all data
         populatePerformancePage(window.currentLecturerData, null);
@@ -2175,6 +2417,8 @@ function filterPerformanceLevel(level) {
             tableHeader.style.backgroundColor = '#198754';
             tableHeader.innerHTML = '<i class="bi bi-stars me-2"></i><strong>Top Performers (70%+)</strong>';
         }
+
+
     } else {
         // Show filtered category
         drillDownChartToPerformance(level);
@@ -3056,6 +3300,105 @@ function showMaterialAccessSection() {
         section.style.display = 'block';
         section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+}
+
+function hideMaterialAccessSection() {
+    const section = document.getElementById('materialAccessSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
+// ============================================
+// ENGAGEMENT PAGE SECTION SHOW/HIDE
+// ============================================
+
+function showEngagementDetailsSection() {
+    const sections = ['engagementDetailsSection', 'participationTrendsSection', 'materialAccessSection'];
+    const section = document.getElementById('engagementDetailsSection');
+    if (!section) return;
+
+    // Toggle: if already visible, hide it
+    if (window.getComputedStyle(section).display !== 'none') {
+        section.style.display = 'none';
+        return;
+    }
+
+    // Hide other sections immediately
+    sections.forEach(id => {
+        if (id !== 'engagementDetailsSection') {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+    });
+
+    // Show this section and load data
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (window.engagementPageStudents) {
+        filterEngagementPage('all');
+    }
+}
+
+function hideEngagementDetailsSection() {
+    const section = document.getElementById('engagementDetailsSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
+function showParticipationTrendsSection() {
+    const sections = ['engagementDetailsSection', 'participationTrendsSection', 'materialAccessSection'];
+    const section = document.getElementById('participationTrendsSection');
+    if (!section) return;
+
+    // Toggle: if already visible, hide it
+    if (window.getComputedStyle(section).display !== 'none') {
+        section.style.display = 'none';
+        return;
+    }
+
+    // Hide other sections immediately
+    sections.forEach(id => {
+        if (id !== 'participationTrendsSection') {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+    });
+
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideParticipationTrendsSection() {
+    const section = document.getElementById('participationTrendsSection');
+    if (section) {
+        section.style.display = 'none';
+    }
+}
+
+function showMaterialAccessSection() {
+    const sections = ['engagementDetailsSection', 'participationTrendsSection', 'materialAccessSection'];
+    const section = document.getElementById('materialAccessSection');
+    if (!section) return;
+
+    // Toggle: if already visible, hide it
+    if (window.getComputedStyle(section).display !== 'none') {
+        section.style.display = 'none';
+        return;
+    }
+
+    // Hide other sections immediately
+    sections.forEach(id => {
+        if (id !== 'materialAccessSection') {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+    });
+
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function hideMaterialAccessSection() {

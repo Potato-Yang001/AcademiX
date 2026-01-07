@@ -4,6 +4,25 @@
 let progressChartInstance = null;
 let activityChartInstance = null;
 let deadlineChartInstance = null;
+let performanceTrendChartInstance = null;
+let assessmentBarChartInstance = null;
+let engagementLineChartInstance = null;
+
+// Navigation state
+let currentModule = null;
+let currentAssessment = null;
+
+// Navigation function
+function navigateTo(pageId) {
+    document.querySelectorAll('.page-container').forEach(page => {
+        page.classList.remove('active');
+    });
+    const targetPage = document.getElementById(pageId);
+    if (targetPage) {
+        targetPage.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
 
 async function loadStudentData(studentId = "11391") {
     try {
@@ -11,71 +30,27 @@ async function loadStudentData(studentId = "11391") {
         const data = await res.json();
 
         if (!data.student) {
-            document.getElementById("studentProfile").innerHTML =
-                `<div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    No student found with ID: ${studentId}
-                </div>`;
+            alert("Student not found!");
             return;
-            window.studentData = data;
         }
 
-        // Generate missing data from existing data
-        if (!data.assessments && data.scores) {
-            data.assessments = generateAssessmentsFromScores(data.scores);
-        }
+        // Store globally
+        window.studentData = data;
+
+        // Generate missing data
         if (!data.currentDay) {
             data.currentDay = calculateCurrentDay(data.scores);
         }
-        if (!data.vle && data.activity) {
-            data.vle = generateVLEFromActivity(data.activity);
+        if (!data.assessments && data.scores) {
+            data.assessments = generateAssessmentsFromScores(data.scores);
         }
 
-        // ✅ NEW PRIORITY ORDER (Shaffer-aligned)
-        // 1. URGENT ACTIONS FIRST
-        renderUrgentActionsPanel(data);
-
-        // 2. ACTIONABLE RECOMMENDATIONS
-        renderActionableRecommendations(data);
-
-        // 3. AT-RISK WARNING & PERFORMANCE SUMMARY
-        if (data.scores) {
-            checkAtRiskStatus(data.scores);
-            renderPerformanceSummary(data.scores);
-        }
-
-        // 4. GOAL TRACKER (NEW)
-        renderGoalTracker(data);
-
-        // 5. WHAT-IF CALCULATOR (NEW)
-        renderWhatIfCalculator(data);
-
-        // 6. REST OF DASHBOARD (existing features)
-        renderUpcomingDeadlines(data.assessments || [], data.currentDay || 0);
-        renderModuleProgress(data.scores, data.assessments);
-        renderAcademicProgress(data.scores);
-        renderRecentUpdates(data);
-        renderEngagementChart(data.activity);
-        renderVLEEngagement(data.vle || [], data.activity || []);
-        renderConsistencyTracker(data.activity);
-
-        // 7. PROFILE LAST
-        renderStudentProfile(data.student);
-
-        // 8. Initialize interactive features
-        setTimeout(() => {
-            initializeInteractiveFeatures(data);
-            makeModuleProgressInteractive();
-            makePerformanceCardsInteractive();
-        }, 500);
+        // Render ONLY main dashboard (no more clutter!)
+        renderMainDashboard();
 
     } catch (error) {
         console.error("Error loading student data:", error);
-        document.getElementById("studentProfile").innerHTML =
-            `<div class="alert alert-danger">
-                <i class="bi bi-x-circle me-2"></i>
-                Error loading data. Please try again.
-            </div>`;
+        alert("Error loading student data");
     }
 }
 
@@ -1129,6 +1104,1719 @@ function generateAdaptiveRecommendations(data) {
         // Increase challenge
         return "You're doing great! Try tackling advanced problems";
     }
+}
+
+function renderMainDashboard() {
+    const data = window.studentData;
+
+    // Card 1: Overall Average
+    const avgScore = data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length;
+    document.getElementById('overallGPA').textContent = avgScore.toFixed(1) + '%';
+
+    const statusBadge = document.getElementById('overallStatus');
+    if (avgScore >= 80) {
+        statusBadge.textContent = '🟢 Distinction';
+        statusBadge.className = 'badge bg-success';
+    } else if (avgScore >= 60) {
+        statusBadge.textContent = '🟢 Merit';
+        statusBadge.className = 'badge bg-success';
+    } else if (avgScore >= 40) {
+        statusBadge.textContent = '🟢 Pass';
+        statusBadge.className = 'badge bg-success';
+    } else {
+        statusBadge.textContent = '🔴 At Risk';
+        statusBadge.className = 'badge bg-danger';
+    }
+
+    // Card 2: Urgent Actions
+    const urgentDeadlines = data.assessments.filter(a =>
+        a.date > data.currentDay && (a.date - data.currentDay) < 7
+    );
+    document.getElementById('urgentCount').textContent = urgentDeadlines.length;
+
+    // Card 3: At-Risk Modules
+    const moduleScores = {};
+    data.scores.forEach(s => {
+        if (!moduleScores[s.code_module]) moduleScores[s.code_module] = [];
+        moduleScores[s.code_module].push(Number(s.score));
+    });
+
+    const atRiskModules = Object.entries(moduleScores).filter(([mod, scores]) => {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        return avg < 40;
+    });
+    document.getElementById('atRiskCount').textContent = atRiskModules.length;
+
+    // Card 4: Study Streak
+    if (data.activity && data.activity.length > 0) {
+        const streak = calculateStreak(data.activity);
+        document.getElementById('streakCount').textContent = streak.current;
+
+        const streakBadge = document.getElementById('streakBadge');
+        if (streak.current >= 7) {
+            streakBadge.textContent = '🔥🔥🔥 Amazing!';
+            streakBadge.className = 'badge bg-success';
+        } else if (streak.current >= 3) {
+            streakBadge.textContent = '🔥 Good!';
+            streakBadge.className = 'badge bg-info';
+        } else {
+            streakBadge.textContent = '💤 Build it!';
+            streakBadge.className = 'badge bg-warning';
+        }
+    }
+}
+function calculateStreak(activity) {
+    if (!activity || activity.length === 0) return { current: 0, max: 0 };
+
+    const sortedActivity = [...activity].sort((a, b) => Number(b.date) - Number(a.date));
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let tempStreak = 1;
+
+    for (let i = 0; i < sortedActivity.length - 1; i++) {
+        const diff = Number(sortedActivity[i].date) - Number(sortedActivity[i + 1].date);
+        if (diff === 1) {
+            tempStreak++;
+        } else {
+            if (i === 0) currentStreak = tempStreak;
+            maxStreak = Math.max(maxStreak, tempStreak);
+            tempStreak = 1;
+        }
+    }
+    maxStreak = Math.max(maxStreak, tempStreak);
+    if (currentStreak === 0) currentStreak = tempStreak;
+
+    return { current: currentStreak, max: maxStreak };
+}
+
+// Card 1: Show Module Breakdown
+function showModuleBreakdown() {
+    const data = window.studentData;
+    const moduleScores = {};
+
+    data.scores.forEach(s => {
+        if (!moduleScores[s.code_module]) {
+            moduleScores[s.code_module] = {
+                scores: [],
+                code: s.code_module,
+                presentation: s.code_presentation
+            };
+        }
+        moduleScores[s.code_module].scores.push(Number(s.score));
+    });
+
+    document.getElementById('totalModules').textContent = Object.keys(moduleScores).length;
+
+    // Render module list
+    const html = Object.values(moduleScores).map(mod => {
+        const avg = mod.scores.reduce((a, b) => a + b, 0) / mod.scores.length;
+        let status, statusClass, icon;
+
+        if (avg >= 60) {
+            status = 'PASS';
+            statusClass = 'pass';
+            icon = '✅';
+        } else if (avg >= 40) {
+            status = 'RISK';
+            statusClass = 'warning';
+            icon = '⚠️';
+        } else {
+            status = 'FAIL';
+            statusClass = 'fail';
+            icon = '❌';
+        }
+
+        return `
+            <div class="module-item ${statusClass}" onclick='selectModule(${JSON.stringify(mod)})'>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-1">${icon} ${mod.code} - Module ${mod.code}</h5>
+                        <small class="text-muted">${mod.presentation}</small>
+                    </div>
+                    <div class="text-end">
+                        <h4 class="mb-0">${avg.toFixed(1)}%</h4>
+                        <span class="badge bg-${statusClass === 'pass' ? 'success' : statusClass === 'warning' ? 'warning' : 'danger'}">${status}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('modulesList').innerHTML = html;
+
+    // Render interactive performance trend chart
+    renderPerformanceTrendChart(moduleScores);
+
+    navigateTo('page-modules');
+}
+
+// ============================================
+// INTERACTIVE PERFORMANCE TREND CHART
+// ============================================
+function renderPerformanceTrendChart(moduleScores) {
+    const data = window.studentData;
+
+    // Destroy existing chart
+    if (performanceTrendChartInstance) {
+        performanceTrendChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('performanceTrendChart');
+    if (!ctx) return;
+
+    // Prepare datasets for each module
+    const datasets = Object.entries(moduleScores).map(([moduleCode, moduleData]) => {
+        const moduleAssessments = data.scores
+            .filter(s => s.code_module === moduleCode)
+            .sort((a, b) => a.date_submitted - b.date_submitted)
+            .map((s, idx) => ({
+                x: Number(s.date_submitted),
+                y: Number(s.score),
+                assessment: `Assessment ${idx + 1}`,
+                moduleCode: moduleCode,
+                assessmentData: s
+            }));
+
+        const color = getColorForModule(moduleCode);
+
+        return {
+            label: moduleCode,
+            data: moduleAssessments,
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 3,
+            pointRadius: 8,
+            pointHoverRadius: 12,
+            tension: 0.3,
+            fill: false
+        };
+    });
+
+    performanceTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const element = elements[0];
+                    const datasetIndex = element.datasetIndex;
+                    const dataIndex = element.index;
+                    const clickedData = datasets[datasetIndex].data[dataIndex];
+
+                    // Show assessment detail
+                    showAssessmentDetailFromChart(clickedData);
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: { size: 14, weight: 'bold' },
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        title: (items) => {
+                            const item = items[0];
+                            return `${item.dataset.label} - ${item.raw.assessment}`;
+                        },
+                        label: (context) => {
+                            return [
+                                `Score: ${context.parsed.y}%`,
+                                `Day: ${context.parsed.x}`,
+                                '',
+                                '👆 Click to view details'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: 'Days since course start',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    grid: { color: 'rgba(0,0,0,0.05)' }
+                },
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Score (%)',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: {
+                        callback: (value) => value + '%'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showAssessmentDetailFromChart(clickedData) {
+    // Store the module context
+    currentModule = {
+        code: clickedData.moduleCode,
+        scores: window.studentData.scores.filter(s => s.code_module === clickedData.moduleCode)
+    };
+
+    // Find assessment number
+    const moduleScores = window.studentData.scores
+        .filter(s => s.code_module === clickedData.moduleCode)
+        .sort((a, b) => a.date_submitted - b.date_submitted);
+
+    const assessmentNumber = moduleScores.findIndex(s =>
+        s.date_submitted === clickedData.assessmentData.date_submitted
+    ) + 1;
+
+    // Show assessment detail page
+    showAssessmentDetail(clickedData.assessmentData, assessmentNumber);
+}
+
+function selectModule(moduleData) {
+    currentModule = moduleData;
+    showModuleDetail(moduleData);
+}
+
+// Card 2: Show All Deadlines
+function showAllDeadlines() {
+    alert('Deadlines page - Coming in Part 5!');
+    // We'll implement this in Part 5
+}
+
+// ============================================
+// PAGE: AT-RISK MODULES
+// ============================================
+function showAtRiskModules() {
+    const data = window.studentData;
+
+    const moduleScores = {};
+    data.scores.forEach(s => {
+        if (!moduleScores[s.code_module]) {
+            moduleScores[s.code_module] = [];
+        }
+        moduleScores[s.code_module].push(Number(s.score));
+    });
+
+    const atRiskModules = Object.entries(moduleScores)
+        .filter(([mod, scores]) => {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            return avg < 60; // Show both failing and at-risk
+        })
+        .map(([mod, scores]) => ({
+            code: mod,
+            scores: scores,
+            avg: scores.reduce((a, b) => a + b, 0) / scores.length
+        }))
+        .sort((a, b) => a.avg - b.avg); // Worst first
+
+    // Create page if doesn't exist
+    let atRiskPage = document.getElementById('page-atrisk');
+    if (!atRiskPage) {
+        const contentDiv = document.querySelector('.content');
+        atRiskPage = document.createElement('div');
+        atRiskPage.id = 'page-atrisk';
+        atRiskPage.className = 'page-container';
+        atRiskPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">⚠️ At-Risk Modules</h4>
+                </div>
+                <div class="card-body" id="atRiskContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(atRiskPage);
+    }
+
+    if (atRiskModules.length === 0) {
+        document.getElementById('atRiskContent').innerHTML = `
+            <div class="alert alert-success text-center">
+                <i class="bi bi-check-circle fs-1"></i>
+                <h4 class="mt-3">All Modules on Track!</h4>
+                <p class="mb-0">You're performing well in all your modules. Keep up the great work!</p>
+            </div>
+        `;
+        navigateTo('page-atrisk');
+        return;
+    }
+
+    const content = `
+        <div class="alert alert-warning">
+            <strong><i class="bi bi-exclamation-triangle me-2"></i>Action Needed:</strong>
+            You have ${atRiskModules.length} module${atRiskModules.length !== 1 ? 's' : ''} that need attention.
+        </div>
+
+        ${atRiskModules.map(mod => {
+        const status = mod.avg < 40 ? 'danger' : 'warning';
+        const icon = mod.avg < 40 ? '❌' : '⚠️';
+        const failedCount = mod.scores.filter(s => s < 40).length;
+
+        return `
+                <div class="card mb-3 border-${status}">
+                    <div class="card-header bg-${status} text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">${icon} ${mod.code}</h5>
+                            <h4 class="mb-0">${mod.avg.toFixed(1)}%</h4>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p class="mb-1"><i class="bi bi-clipboard-data me-2"></i><strong>Assessments:</strong> ${mod.scores.length} completed</p>
+                                <p class="mb-1"><i class="bi bi-x-circle me-2 text-danger"></i><strong>Failed:</strong> ${failedCount} assessment${failedCount !== 1 ? 's' : ''}</p>
+                                <p class="mb-0"><i class="bi bi-graph-down me-2 text-${status}"></i><strong>Status:</strong> ${mod.avg < 40 ? 'Below Passing' : 'At Risk'}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="progress" style="height: 30px;">
+                                    <div class="progress-bar bg-${status}" style="width: ${mod.avg}%">
+                                        ${mod.avg.toFixed(1)}%
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">
+                                    ${mod.avg < 40
+                ? `Need ${(40 - mod.avg).toFixed(1)}% to pass`
+                : `${(60 - mod.avg).toFixed(1)}% from Merit`}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-${status}" onclick='showRecoveryPlan("${mod.code}", ${mod.avg}, ${mod.scores.length})'>
+                            <i class="bi bi-clipboard-check me-2"></i>
+                            View Recovery Plan →
+                        </button>
+                    </div>
+                </div>
+            `;
+    }).join('')}
+    `;
+
+    document.getElementById('atRiskContent').innerHTML = content;
+    navigateTo('page-atrisk');
+}
+
+function showRecoveryPlan(moduleCode, currentAvg, completedAssessments) {
+    // Create recovery page if doesn't exist
+    let recoveryPage = document.getElementById('page-recovery');
+    if (!recoveryPage) {
+        const contentDiv = document.querySelector('.content');
+        recoveryPage = document.createElement('div');
+        recoveryPage.id = 'page-recovery';
+        recoveryPage.className = 'page-container';
+        recoveryPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-atrisk')">
+                <i class="bi bi-arrow-left me-2"></i> Back to At-Risk Modules
+            </button>
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0" id="recoveryTitle"></h4>
+                </div>
+                <div class="card-body" id="recoveryContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(recoveryPage);
+    }
+
+    document.getElementById('recoveryTitle').textContent =
+        `🎯 Recovery Plan: ${moduleCode}`;
+
+    const targetScore = 40;
+    const remainingAssessments = 2; // Assume 2 remaining
+
+    const content = `
+        <div class="alert alert-info">
+            <h5 class="mb-2"><i class="bi bi-info-circle me-2"></i>Goal</h5>
+            <p class="mb-0">Raise your ${moduleCode} average from ${currentAvg.toFixed(1)}% to ${targetScore}% (Passing Grade)</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4 text-center">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="text-muted">Completed</h6>
+                        <h2>${completedAssessments}</h2>
+                        <small>assessments</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="card bg-warning">
+                    <div class="card-body">
+                        <h6>Remaining</h6>
+                        <h2>${remainingAssessments}</h2>
+                        <small>assessments</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h6>Score Needed</h6>
+                        <h2>${Math.max(0, Math.round((targetScore * (completedAssessments + remainingAssessments) - currentAvg * completedAssessments) / remainingAssessments))}%</h2>
+                        <small>on remaining</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mb-3">🧮 Recovery Simulator</h5>
+        <div class="card bg-light mb-4">
+            <div class="card-body">
+                <p class="mb-2">What if you score this on remaining assessments:</p>
+                <input type="range" class="form-range" min="0" max="100" value="60" 
+                       id="recoveryScore" oninput="updateRecoveryCalculation(${currentAvg}, ${completedAssessments}, ${remainingAssessments})">
+                <div class="text-center mb-2">
+                    <span class="badge bg-primary" style="font-size: 1.5rem;" id="recoveryScoreDisplay">60%</span>
+                </div>
+                <div id="recoveryResult"></div>
+            </div>
+        </div>
+
+        <h5 class="mb-3">✅ Immediate Actions</h5>
+        <div class="list-group mb-4">
+            <div class="list-group-item">
+                <div class="d-flex align-items-start">
+                    <div class="me-3">
+                        <span class="badge bg-danger rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">1</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">Book Emergency Tutor Session</h6>
+                        <p class="mb-1 small text-muted">Get immediate help on your weakest topics</p>
+                        <button class="btn btn-sm btn-danger" onclick="alert('Booking tutor...')">Book Now</button>
+                    </div>
+                </div>
+            </div>
+            <div class="list-group-item">
+                <div class="d-flex align-items-start">
+                    <div class="me-3">
+                        <span class="badge bg-warning rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">2</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">Review All Failed Assessments</h6>
+                        <p class="mb-1 small text-muted">Understand where you went wrong</p>
+                        <button class="btn btn-sm btn-warning" onclick="showModuleBreakdown()">View Assessments</button>
+                    </div>
+                </div>
+            </div>
+            <div class="list-group-item">
+                <div class="d-flex align-items-start">
+                    <div class="me-3">
+                        <span class="badge bg-info rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">3</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">Complete Practice Problems</h6>
+                        <p class="mb-1 small text-muted">Build confidence with extra practice</p>
+                        <button class="btn btn-sm btn-info" onclick="alert('Opening practice materials...')">Start Practice</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mb-3">📚 Study Resources</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-play-circle text-primary" style="font-size: 3rem;"></i>
+                        <h6 class="mt-2">Lecture Recordings</h6>
+                        <button class="btn btn-sm btn-outline-primary">Access</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-file-text text-success" style="font-size: 3rem;"></i>
+                        <h6 class="mt-2">Course Notes</h6>
+                        <button class="btn btn-sm btn-outline-success">Download</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people text-info" style="font-size: 3rem;"></i>
+                        <h6 class="mt-2">Study Group</h6>
+                        <button class="btn btn-sm btn-outline-info">Join</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('recoveryContent').innerHTML = content;
+    updateRecoveryCalculation(currentAvg, completedAssessments, remainingAssessments);
+    navigateTo('page-recovery');
+}
+
+function updateRecoveryCalculation(currentAvg, completed, remaining) {
+    const score = document.getElementById('recoveryScore')?.value || 60;
+    const display = document.getElementById('recoveryScoreDisplay');
+    const result = document.getElementById('recoveryResult');
+
+    if (display) display.textContent = score + '%';
+    if (!result) return;
+
+    const newAvg = (currentAvg * completed + Number(score) * remaining) / (completed + remaining);
+    const status = newAvg >= 60 ? 'success' : newAvg >= 40 ? 'warning' : 'danger';
+    const statusText = newAvg >= 60 ? 'Merit!' : newAvg >= 40 ? 'Pass' : 'Still Failing';
+
+    result.innerHTML = `
+        <div class="alert alert-${status} mt-3">
+            <div class="row text-center">
+                <div class="col-6">
+                    <h6 class="text-muted">Final Average</h6>
+                    <h2>${newAvg.toFixed(1)}%</h2>
+                </div>
+                <div class="col-6">
+                    <h6 class="text-muted">Status</h6>
+                    <h2>${statusText}</h2>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================
+// PAGE: STUDY STREAK PATTERN
+// ============================================
+function showStudyStreak() {
+    const data = window.studentData;
+
+    if (!data.activity || data.activity.length === 0) {
+        alert('No activity data available');
+        return;
+    }
+
+    const streak = calculateStreak(data.activity);
+
+    // Calculate weekly activity
+    const weeklyActivity = {};
+    data.activity.forEach(a => {
+        const week = Math.floor(Number(a.date) / 7) + 1;
+        if (!weeklyActivity[week]) weeklyActivity[week] = 0;
+        weeklyActivity[week] += Number(a.sum_click);
+    });
+
+    // Get last 7 days
+    const sortedActivity = [...data.activity].sort((a, b) => Number(b.date) - Number(a.date));
+    const last7Days = sortedActivity.slice(0, 7).reverse();
+
+    // Create page if doesn't exist
+    let streakPage = document.getElementById('page-streak');
+    if (!streakPage) {
+        const contentDiv = document.querySelector('.content');
+        streakPage = document.createElement('div');
+        streakPage.id = 'page-streak';
+        streakPage.className = 'page-container';
+        streakPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">🔥 Your Study Pattern</h4>
+                </div>
+                <div class="card-body" id="streakContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(streakPage);
+    }
+
+    const activeDays = data.activity.length;
+    const totalDays = Math.max(...data.activity.map(a => Number(a.date)));
+    const consistency = (activeDays / totalDays * 100);
+
+    let streakIcon, streakColor, message;
+    if (streak.current >= 7) {
+        streakIcon = '🔥🔥🔥';
+        streakColor = 'success';
+        message = 'Amazing! You\'re on fire! Keep this momentum going!';
+    } else if (streak.current >= 3) {
+        streakIcon = '🔥';
+        streakColor = 'info';
+        message = 'Good consistency! Try to maintain your streak!';
+    } else {
+        streakIcon = '💤';
+        streakColor = 'warning';
+        message = 'Let\'s build a longer study streak!';
+    }
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    const content = `
+        <div class="text-center mb-5">
+            <div style="font-size: 5rem;">${streakIcon}</div>
+            <h2 class="mt-3 text-${streakColor}">Current Streak: ${streak.current} Days</h2>
+            <p class="text-muted">Best Streak: ${streak.max} days</p>
+        </div>
+
+        <div 9:03 PMclass="row text-center mb-5">
+<div class="col-4">
+<div class="card bg-light">
+<div class="card-body">
+<h3 class="text-primary">${streak.max}</h3>
+<small>Best Streak</small>
+</div>
+</div>
+</div>
+<div class="col-4">
+<div class="card bg-light">
+<div class="card-body">
+<h3 class="text-success">${activeDays}</h3>
+<small>Active Days</small>
+</div>
+</div>
+</div>
+<div class="col-4">
+<div class="card bg-light">
+<div class="card-body">
+<h3 class="text-info">${consistency.toFixed(0)}%</h3>
+<small>Consistency</small>
+</div>
+</div>
+</div>
+</div>
+    <h5 class="mb-3">📅 Last 7 Days Activity</h5>
+    <div class="row g-2 mb-4">
+        ${last7Days.map((a, idx) => {
+        const clicks = Number(a.sum_click);
+        const height = Math.min((clicks / 100) * 100, 100);
+        return `
+                <div class="col text-center">
+                    <div class="card" style="cursor: pointer;" onclick="alert('Day ${a.date}: ${clicks} clicks')">
+                        <div class="card-body p-2">
+                            <div class="mb-2" style="height: 100px; display: flex; align-items: flex-end; justify-content: center;">
+                                <div style="width: 40px; height: ${height}px; background: linear-gradient(to top, #0d6efd, #0dcaf0); border-radius: 5px;"></div>
+                            </div>
+                            <small class="d-block"><strong>${days[idx % 7]}</strong></small>
+                            <small class="text-muted">${clicks}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+    }).join('')}
+    </div>
+
+    <div class="alert alert-${streakColor}">
+        <i class="bi bi-lightbulb me-2"></i>
+        <strong>${message}</strong>
+    </div>
+
+    <h5 class="mb-3">📊 Module Engagement</h5>
+    ${Object.entries(groupActivityByModule(data)).map(([mod, clicks]) => {
+        const color = clicks > 100 ? 'success' : clicks > 50 ? 'info' : 'warning';
+        const percent = Math.min((clicks / 150) * 100, 100);
+        return `
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span><strong>${mod}</strong></span>
+                    <span class="text-${color}">${clicks} clicks/week</span>
+                </div>
+                <div class="progress" style="height: 25px;">
+                    <div class="progress-bar bg-${color}" style="width: ${percent}%">
+                        ${percent.toFixed(0)}%
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('')}
+`;
+
+    document.getElementById('streakContent').innerHTML = content;
+    navigateTo('page-streak');
+}
+function groupActivityByModule(data) {
+    // Simplified - in real app, you'd match activity to modules
+    const modules = [...new Set(data.scores.map(s => s.code_module))];
+    const result = {};
+    modules.forEach((mod, idx) => {
+        result[mod] = Math.floor(Math.random() * 100) + 50; // Simulated
+    });
+    return result;
+}
+
+// ============================================
+// PAGE: FULL PERFORMANCE REPORT
+// ============================================
+function showFullReport() {
+    const data = window.studentData;
+
+    // Create page if doesn't exist
+    let reportPage = document.getElementById('page-full-report');
+    if (!reportPage) {
+        const contentDiv = document.querySelector('.content');
+        reportPage = document.createElement('div');
+        reportPage.id = 'page-full-report';
+        reportPage.className = 'page-container';
+        reportPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">📊 Complete Performance Report</h4>
+                </div>
+                <div class="card-body" id="fullReportContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(reportPage);
+    }
+
+    const avgScore = data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length;
+    const passed = data.scores.filter(s => Number(s.score) >= 40).length;
+    const failed = data.scores.length - passed;
+
+    const moduleStats = {};
+    data.scores.forEach(s => {
+        if (!moduleStats[s.code_module]) {
+            moduleStats[s.code_module] = [];
+        }
+        moduleStats[s.code_module].push(Number(s.score));
+    });
+
+    const content = `
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h2>${avgScore.toFixed(1)}%</h2>
+                        <small>Overall Average</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h2>${passed}</h2>
+                        <small>Passed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h2>${failed}</h2>
+                        <small>Failed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h2>${Object.keys(moduleStats).length}</h2>
+                        <small>Modules</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mb-3">📚 Module Summary</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Module</th>
+                        <th>Assessments</th>
+                        <th>Average</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${Object.entries(moduleStats).map(([mod, scores]) => {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const status = avg >= 60 ? 'Pass' : avg >= 40 ? 'Pass' : 'Fail';
+        const color = avg >= 60 ? 'success' : avg >= 40 ? 'warning' : 'danger';
+        return `
+                            <tr>
+                                <td><strong>${mod}</strong></td>
+                                <td>${scores.length}</td>
+                                <td>${avg.toFixed(1)}%</td>
+                                <td><span class="badge bg-${color}">${status}</span></td>
+                            </tr>
+                        `;
+    }).join('')}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="text-center mt-4">
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i>
+                Print Report
+            </button>
+        </div>
+    `;
+
+    document.getElementById('fullReportContent').innerHTML = content;
+    navigateTo('page-full-report');
+}
+
+
+// ============================================
+// PAGE 3: MODULE DETAIL
+// ============================================
+function showModuleDetail(moduleData) {
+    const data = window.studentData;
+    const moduleScores = data.scores
+        .filter(s => s.code_module === moduleData.code)
+        .sort((a, b) => a.date_submitted - b.date_submitted);
+
+    const avg = moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length;
+
+    // Update header
+    document.getElementById('moduleDetailTitle').textContent =
+        `📚 ${moduleData.code} - Module Details`;
+
+    // Update stats
+    document.getElementById('moduleAvg').textContent = avg.toFixed(1) + '%';
+    document.getElementById('moduleAvg').className = avg >= 40 ? 'display-3 text-success' : 'display-3 text-danger';
+
+    const status = avg >= 80 ? 'Distinction' : avg >= 60 ? 'Merit' : avg >= 40 ? 'Pass' : 'Fail';
+    const statusClass = avg >= 40 ? 'text-success' : 'text-danger';
+    document.getElementById('moduleStatus').innerHTML =
+        `<span class="${statusClass}">${avg >= 40 ? '✅' : '❌'} ${status}</span>`;
+
+    document.getElementById('moduleAssessmentCount').textContent =
+        `${moduleScores.length} completed`;
+
+    // Render Assessment Bar Chart (clickable)
+    renderAssessmentBarChart(moduleScores, moduleData.code);
+
+    // Render Engagement Line Chart (clickable)
+    renderEngagementLineChart(moduleData.code);
+
+    // Recommended Actions
+    const recommendations = [];
+    if (avg < 40) {
+        recommendations.push(`
+            <div class="alert alert-danger border-start border-5 border-danger">
+                <i class="bi bi-person-video2 fs-4 me-2"></i>
+                <strong>Urgent: Book Tutor Session</strong>
+                <p class="mb-0 small">Your average is below passing grade. Get 1-on-1 help immediately.</p>
+            </div>
+        `);
+    }
+    if (avg < 60) {
+        recommendations.push(`
+            <div class="alert alert-warning border-start border-5 border-warning">
+                <i class="bi bi-book fs-4 me-2"></i>
+                <strong>Review Course Materials</strong>
+                <p class="mb-0 small">Focus on weeks where you scored below 60%.</p>
+            </div>
+        `);
+    } else {
+        recommendations.push(`
+            <div class="alert alert-success border-start border-5 border-success">
+                <i class="bi bi-trophy fs-4 me-2"></i>
+                <strong>Great Work!</strong>
+                <p class="mb-0 small">Keep up the excellent performance!</p>
+            </div>
+        `);
+    }
+
+    document.getElementById('recommendedActions').innerHTML = recommendations.join('');
+
+    navigateTo('page-module-detail');
+}
+
+// ============================================
+// ASSESSMENT BAR CHART (Clickable)
+// ============================================
+function renderAssessmentBarChart(moduleScores, moduleCode) {
+    if (assessmentBarChartInstance) {
+        assessmentBarChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('assessmentBarChart');
+    if (!ctx) return;
+
+    const labels = moduleScores.map((_, idx) => `Assessment ${idx + 1}`);
+    const scores = moduleScores.map(s => Number(s.score));
+    const colors = scores.map(score =>
+        score >= 60 ? '#198754' : score >= 40 ? '#ffc107' : '#dc3545'
+    );
+
+    assessmentBarChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Score',
+                data: scores,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const assessment = moduleScores[index];
+                    showAssessmentDetail(assessment, index + 1);
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const score = context.parsed.y;
+                            const status = score >= 60 ? '✅ Pass' : score >= 40 ? '⚠️ Pass' : '❌ Fail';
+                            return [
+                                `Score: ${score}%`,
+                                `Status: ${status}`,
+                                '',
+                                '👆 Click for details'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Score (%)',
+                        font: { weight: 'bold' }
+                    },
+                    ticks: {
+                        callback: (value) => value + '%'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Click any bar to see detailed breakdown',
+                        font: { weight: 'bold', style: 'italic' },
+                        color: '#0d6efd'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ============================================
+// ENGAGEMENT LINE CHART (Clickable)
+// ============================================
+function renderEngagementLineChart(moduleCode) {
+    if (engagementLineChartInstance) {
+        engagementLineChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('engagementLineChart');
+    if (!ctx) return;
+
+    const data = window.studentData;
+
+    // Group activity by weeks (every 7 days)
+    const weeklyActivity = {};
+    if (data.activity) {
+        data.activity.forEach(a => {
+            const week = Math.floor(Number(a.date) / 7) + 1;
+            if (!weeklyActivity[week]) weeklyActivity[week] = 0;
+            weeklyActivity[week] += Number(a.sum_click);
+        });
+    }
+
+    const weeks = Object.keys(weeklyActivity).sort((a, b) => a - b);
+    const clicks = weeks.map(w => weeklyActivity[w]);
+
+    engagementLineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: weeks.map(w => `Week ${w}`),
+            datasets: [{
+                label: 'VLE Clicks',
+                data: clicks,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderWidth: 3,
+                pointRadius: 6,
+                pointHoverRadius: 10,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const week = weeks[index];
+                    const clickCount = clicks[index];
+                    showWeekDetail(week, clickCount);
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            return [
+                                `Clicks: ${context.parsed.y}`,
+                                '',
+                                '👆 Click to see weekly activity'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Clicks',
+                        font: { weight: 'bold' }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Click any point to see weekly details',
+                        font: { weight: 'bold', style: 'italic' },
+                        color: '#0d6efd'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showWeekDetail(week, clickCount) {
+    const avgClicks = 120; // You can calculate this from data
+    const comparison = clickCount >= avgClicks ? 'above' : 'below';
+    const color = clickCount >= avgClicks ? 'success' : 'warning';
+
+    alert(`📊 Week ${week} Activity
+    
+Your clicks: ${clickCount}
+Class average: ${avgClicks}
+
+You are ${comparison} average!
+
+${clickCount < avgClicks ? '💡 Tip: Try to increase engagement by accessing more course materials.' : '✅ Great job staying engaged!'}`);
+}
+
+// ============================================
+// PAGE 4: ASSESSMENT DETAIL
+// ============================================
+function showAssessmentDetail(assessment, number) {
+    currentAssessment = { ...assessment, number };
+
+    const scoreClass = assessment.score >= 60 ? 'text-success' :
+        assessment.score >= 40 ? 'text-warning' : 'text-danger';
+
+    const statusIcon = assessment.score >= 60 ? '✅' :
+        assessment.score >= 40 ? '⚠️' : '❌';
+
+    document.getElementById('assessmentDetailTitle').textContent =
+        `Assessment ${number} - ${assessment.code_module}`;
+
+    // Generate topic breakdown (simulated data)
+    const topics = generateTopicBreakdown(assessment.score);
+
+    const content = `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="text-center p-4 bg-light rounded">
+                    <h6 class="text-muted mb-2">Your Score</h6>
+                    <h1 class="display-1 ${scoreClass}">${assessment.score}%</h1>
+                    <h4 class="mt-2">${statusIcon} ${assessment.score >= 60 ? 'Good Pass' : assessment.score >= 40 ? 'Pass' : 'Failed'}</h4>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-4 bg-light rounded">
+                    <h6 class="text-muted mb-3">Submission Info</h6>
+                    <p class="mb-2">
+                        <i class="bi bi-calendar-check text-primary me-2"></i>
+                        <strong>Submitted:</strong> Day ${assessment.date_submitted}
+                    </p>
+                    <p class="mb-2">
+                        <i class="bi bi-book text-primary me-2"></i>
+                        <strong>Module:</strong> ${assessment.code_module}
+                    </p>
+                    <p class="mb-2">
+                        <i class="bi bi-graph-up text-primary me-2"></i>
+                        <strong>Class Average:</strong> 68%
+                    </p>
+                    <p class="mb-0">
+                        <i class="bi bi-award text-primary me-2"></i>
+                        <strong>Your Ranking:</strong> ${assessment.score >= 80 ? 'Top 25%' : assessment.score >= 60 ? 'Top 50%' : 'Below Average'}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info border-start border-5 border-info">
+            <h5 class="mb-2"><i class="bi bi-info-circle me-2"></i>📝 What Happened?</h5>
+            <ul class="mb-0">
+                <li><strong>Submission:</strong> ${assessment.is_banked === 1 ? 'On time ✅' : 'Completed ✅'}</li>
+                <li><strong>Estimated Time Spent:</strong> ${assessment.score >= 70 ? '45-60 minutes' : '15-30 minutes'} 
+                    <small class="text-muted">(Class avg: 45 min)</small>
+                </li>
+                <li><strong>VLE Materials Accessed:</strong> ${assessment.score >= 70 ? '8/10 resources' : '2/10 resources'}</li>
+            </ul>
+        </div>
+
+        <h4 class="mb-3 mt-4">🎯 Topic Breakdown</h4>
+        <p class="text-muted mb-3">Click on any bar to see detailed question analysis</p>
+        
+        <div class="chart-container mb-4">
+            <canvas id="topicBreakdownChart"></canvas>
+        </div>
+
+        <div id="topicDetailSection"></div>
+
+        <h4 class="mb-3 mt-5">💡 How to Improve</h4>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card h-100 border-primary" style="cursor: pointer;" onclick="alert('Opening lecture materials...')">
+                    <div class="card-body text-center">
+                        <i class="bi bi-play-circle text-primary" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">📖 Review Lectures</h5>
+                        <p class="text-muted mb-0 small">Watch Week ${Math.floor(assessment.date_submitted / 7)} lectures again</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-info" style="cursor: pointer;" onclick="alert('Booking tutor session...')">
+                    <div class="card-body text-center">
+                        <i class="bi bi-person-video text-info" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">🎓 Book Tutor</h5>
+                        <p class="text-muted mb-0 small">Get 1-on-1 help on weak topics</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-success" style="cursor: pointer;" onclick="alert('Opening practice quiz...')">
+                    <div class="card-body text-center">
+                        <i class="bi bi-pencil-square text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">📝 Practice Quiz</h5>
+                        <p class="text-muted mb-0 small">Test yourself on similar questions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h4 class="mb-3">🧮 Grade Impact Calculator</h4>
+            <div class="card bg-light">
+                <div class="card-body">
+                    <p class="mb-3">If you could retake this assessment, what score would you need?</p>
+                    
+                    <label class="form-label"><strong>Target Score:</strong></label>
+                    <input type="range" class="form-range" min="0" max="100" value="${Math.min(assessment.score + 20, 100)}" 
+                           id="retakeScore" oninput="updateRetakeCalculation()">
+                    <div class="text-center mb-3">
+                        <span class="badge bg-primary" style="font-size: 1.5rem;" id="retakeScoreDisplay">${Math.min(assessment.score + 20, 100)}%</span>
+                    </div>
+                    
+                    <div id="retakeResult" class="alert alert-info"></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('assessmentDetailContent').innerHTML = content;
+
+    // Render topic breakdown chart
+    renderTopicBreakdownChart(topics, assessment);
+
+    // Initialize retake calculator
+    updateRetakeCalculation();
+
+    navigateTo('page-assessment-detail');
+}
+
+// Helper function to navigate back
+function navigateToModuleDetail() {
+    if (currentModule) {
+        showModuleDetail(currentModule);
+    }
+}
+
+// Generate simulated topic breakdown based on score
+function generateTopicBreakdown(overallScore) {
+    const topics = [
+        'Basic Concepts',
+        'Advanced Theory',
+        'Practical Application'
+    ];
+
+    // Generate scores based on overall performance
+    return topics.map(topic => {
+        // Add some variance to make it realistic
+        const variance = (Math.random() - 0.5) * 20;
+        let score = Math.max(0, Math.min(100, overallScore + variance));
+        return {
+            topic: topic,
+            score: Math.round(score),
+            questions: Math.floor(Math.random() * 5) + 5 // 5-10 questions
+        };
+    });
+}
+
+// ============================================
+// TOPIC BREAKDOWN CHART (Clickable Bars)
+// ============================================
+let topicBreakdownChartInstance = null;
+
+function renderTopicBreakdownChart(topics, assessment) {
+    if (topicBreakdownChartInstance) {
+        topicBreakdownChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('topicBreakdownChart');
+    if (!ctx) return;
+
+    const labels = topics.map(t => t.topic);
+    const scores = topics.map(t => t.score);
+    const classAvg = topics.map(t => Math.min(t.score + 20, 95)); // Simulated class average
+
+    const colors = scores.map(score =>
+        score >= 60 ? '#198754' : score >= 40 ? '#ffc107' : '#dc3545'
+    );
+
+    topicBreakdownChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Your Score',
+                    data: scores,
+                    backgroundColor: colors,
+                    borderColor: colors,
+                    borderWidth: 2
+                },
+                {
+                    label: 'Class Average',
+                    data: classAvg,
+                    backgroundColor: 'rgba(13, 110, 253, 0.3)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 2,
+                    borderDash: [5, 5]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const topic = topics[index];
+                    showTopicDetail(topic);
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: () => {
+                            return '\n👆 Click to see question breakdown';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Score (%)',
+                        font: { weight: 'bold' }
+                    },
+                    ticks: {
+                        callback: (value) => value + '%'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showTopicDetail(topic) {
+    const detailSection = document.getElementById('topicDetailSection');
+
+    const status = topic.score >= 60 ? 'success' : topic.score >= 40 ? 'warning' : 'danger';
+    const icon = topic.score >= 60 ? '✅' : topic.score >= 40 ? '⚠️' : '❌';
+
+    const correct = Math.round((topic.score / 100) * topic.questions);
+    const incorrect = topic.questions - correct;
+
+    detailSection.innerHTML = `
+        <div class="alert alert-${status} border-start border-5 border-${status}">
+            <h5 class="mb-3">${icon} ${topic.topic}: ${topic.score}% (${correct}/${topic.questions} correct)</h5>
+            
+            <div class="mb-3">
+                <strong>Performance Analysis:</strong>
+                <div class="progress mt-2" style="height: 25px;">
+                    <div class="progress-bar bg-${status}" style="width: ${topic.score}%">
+                        ${topic.score}%
+                    </div>
+                </div>
+            </div>
+            
+            <p class="mb-2"><strong>Questions Breakdown:</strong></p>
+            <ul class="mb-3">
+                <li>✅ Correct: ${correct} questions</li>
+                <li>❌ Incorrect: ${incorrect} questions</li>
+                ${topic.score < 60 ? '<li>💡 <strong>Common mistake:</strong> Review fundamental concepts</li>' : ''}
+            </ul>
+            
+            ${topic.score < 60 ? `
+                <button class="btn btn-${status}" onclick="alert('Opening practice materials for ${topic.topic}...')">
+                    <i class="bi bi-book me-2"></i>
+                    Practice This Topic
+                </button>
+            ` : `
+                <p class="text-success mb-0">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Great work on this topic! Keep it up.
+                </p>
+            `}
+        </div>
+    `;
+
+    // Scroll to show the detail
+    detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ============================================
+// RETAKE CALCULATOR
+// ============================================
+function updateRetakeCalculation() {
+    const retakeScore = document.getElementById('retakeScore')?.value;
+    const retakeScoreDisplay = document.getElementById('retakeScoreDisplay');
+    const retakeResult = document.getElementById('retakeResult');
+
+    if (!retakeScore || !retakeResult) return;
+
+    if (retakeScoreDisplay) {
+        retakeScoreDisplay.textContent = retakeScore + '%';
+    }
+
+    const data = window.studentData;
+    const currentAssessmentScore = currentAssessment.score;
+
+    // Calculate what module average would be
+    const moduleScores = data.scores.filter(s => s.code_module === currentAssessment.code_module);
+    const currentAvg = moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length;
+
+    // Calculate new average if this assessment score changed
+    const newAvg = (currentAvg * moduleScores.length - currentAssessmentScore + Number(retakeScore)) / moduleScores.length;
+
+    const improvement = newAvg - currentAvg;
+    const color = improvement > 0 ? 'success' : 'secondary';
+
+    retakeResult.innerHTML = `
+        <div class="row text-center">
+            <div class="col-4">
+                <h6 class="text-muted">Current Module Avg</h6>
+                <h3>${currentAvg.toFixed(1)}%</h3>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">With Retake</h6>
+                <h3 class="text-${color}">${newAvg.toFixed(1)}%</h3>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">Change</h6>
+                <h3 class="text-${color}">${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}%</h3>
+            </div>
+        </div>
+        <hr>
+        <p class="mb-0 text-center">
+            ${improvement > 0
+            ? `<i class="bi bi-arrow-up-circle text-success me-2"></i>This would improve your ${currentAssessment.code_module} average!`
+            : `<i class="bi bi-info-circle text-secondary me-2"></i>Current score is already optimal.`
+        }
+        </p>
+    `;
+}
+
+// ============================================
+// PAGE: ALL DEADLINES & TIMELINE
+// ============================================
+function showAllDeadlines() {
+    const data = window.studentData;
+    const currentDay = data.currentDay;
+
+    const critical = data.assessments.filter(a =>
+        a.date > currentDay && (a.date - currentDay) < 3
+    ).sort((a, b) => a.date - b.date);
+
+    const upcoming = data.assessments.filter(a =>
+        a.date > currentDay && (a.date - currentDay) >= 3 && (a.date - currentDay) < 7
+    ).sort((a, b) => a.date - b.date);
+
+    const thisMonth = data.assessments.filter(a =>
+        a.date > currentDay && (a.date - currentDay) >= 7 && (a.date - currentDay) < 30
+    ).sort((a, b) => a.date - b.date);
+
+    const renderDeadlineGroup = (list, title, colorClass) => {
+        if (list.length === 0) return '';
+
+        return `
+            <div class="mb-4">
+                <h5 class="mb-3">${title}</h5>
+                ${list.map(a => {
+            const daysLeft = a.date - currentDay;
+            return `
+                        <div class="alert alert-${colorClass} d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="bi bi-${a.assessment_type === 'Exam' ? 'clipboard-check' : 'file-text'} me-2"></i>
+                                    ${a.assessment_type} - ${a.code_module}
+                                </h6>
+                                <small class="text-muted">${a.code_presentation} | Day ${a.date}</small>
+                            </div>
+                            <div class="text-end">
+                                <h4 class="mb-1">${daysLeft} days</h4>
+                                <button class="btn btn-sm btn-${colorClass}" onclick='showDeadlinePrep(${JSON.stringify(a)})'>
+                                    Prepare →
+                                </button>
+                            </div>
+                        </div>
+                    `;
+        }).join('')}
+            </div>
+        `;
+    };
+
+    // Create page content
+    const pageContent = document.getElementById('page-deadlines');
+    if (!pageContent) {
+        // Create the page if it doesn't exist
+        const contentDiv = document.querySelector('.content');
+        const newPage = document.createElement('div');
+        newPage.id = 'page-deadlines';
+        newPage.className = 'page-container';
+        newPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">📅 All Deadlines & Tasks</h4>
+                </div>
+                <div class="card-body" id="deadlinesContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(newPage);
+    }
+
+    const content = `
+        ${renderDeadlineGroup(critical, '🚨 CRITICAL (< 3 days)', 'danger')}
+        ${renderDeadlineGroup(upcoming, '⚠️ UPCOMING (< 7 days)', 'warning')}
+        ${renderDeadlineGroup(thisMonth, '📅 THIS MONTH', 'info')}
+        
+        ${critical.length === 0 && upcoming.length === 0 && thisMonth.length === 0 ? `
+            <div class="alert alert-success text-center">
+                <i class="bi bi-check-circle fs-1"></i>
+                <h4 class="mt-3">All Clear!</h4>
+                <p class="mb-0">No upcoming deadlines. Great job staying on top of your work!</p>
+            </div>
+        ` : ''}
+        
+        <h5 class="mt-5 mb-3">📊 Deadline Timeline</h5>
+        <div class="position-relative" style="height: 100px; background: #f8f9fa; border-radius: 10px; padding: 20px;">
+            <div class="d-flex justify-content-between align-items-center h-100">
+                <div class="text-center">
+                    <strong>Today</strong>
+                    <div class="text-muted small">Day ${currentDay}</div>
+                </div>
+                ${[...critical, ...upcoming, ...thisMonth].slice(0, 5).map(a => {
+        const daysLeft = a.date - currentDay;
+        const position = Math.min((daysLeft / 30) * 100, 100);
+        const color = daysLeft < 3 ? 'danger' : daysLeft < 7 ? 'warning' : 'info';
+        return `
+                        <div style="position: absolute; left: ${position}%;" class="text-center">
+                            <div class="badge bg-${color} rounded-circle" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;"
+                                 onclick='showDeadlinePrep(${JSON.stringify(a)})'>
+                                ${daysLeft}
+                            </div>
+                            <small class="d-block mt-1">${a.code_module}</small>
+                        </div>
+                    `;
+    }).join('')}
+                <div class="text-center">
+                    <strong>+30 days</strong>
+                    <div class="text-muted small">Day ${currentDay + 30}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('deadlinesContent').innerHTML = content;
+    navigateTo('page-deadlines');
+}
+
+function showDeadlinePrep(assessment) {
+    const data = window.studentData;
+    const currentDay = data.currentDay;
+    const daysLeft = assessment.date - currentDay;
+
+    // Create deadline prep page if doesn't exist
+    let prepPage = document.getElementById('page-deadline-prep');
+    if (!prepPage) {
+        const contentDiv = document.querySelector('.content');
+        prepPage = document.createElement('div');
+        prepPage.id = 'page-deadline-prep';
+        prepPage.className = 'page-container';
+        prepPage.innerHTML = `
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-deadlines')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Deadlines
+            </button>
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0" id="deadlinePrepTitle"></h4>
+                </div>
+                <div class="card-body" id="deadlinePrepContent"></div>
+            </div>
+        `;
+        contentDiv.appendChild(prepPage);
+    }
+
+    document.getElementById('deadlinePrepTitle').textContent =
+        `🎯 ${assessment.assessment_type} Preparation - ${assessment.code_module}`;
+
+    // Get module scores for calculator
+    const moduleScores = data.scores.filter(s => s.code_module === assessment.code_module);
+    const currentAvg = moduleScores.length > 0
+        ? moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length
+        : 0;
+
+    const content = `
+        <div class="alert alert-${daysLeft < 3 ? 'danger' : 'warning'} text-center">
+            <h3 class="mb-0">Due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} ${daysLeft < 3 ? '🔥' : '⏰'}</h3>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5 class="mb-3">📚 Topics to Study</h5>
+                <div class="list-group">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Week ${Math.floor(assessment.date / 7) - 1} Materials</span>
+                        <span class="badge bg-success">Ready</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Week ${Math.floor(assessment.date / 7)} Materials</span>
+                        <span class="badge bg-warning">Review Needed</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Practice Problems</span>
+                        <span class="badge bg-info">Available</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h5 class="mb-3">🧮 Grade Impact Calculator</h5>
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <p class="mb-2"><strong>Current ${assessment.code_module} Average:</strong> ${currentAvg.toFixed(1)}%</p>
+                        
+                        <label class="form-label">Predicted Score:</label>
+                        <input type="range" class="form-range" min="0" max="100" value="70" 
+                               id="prepScore" oninput="updatePrepCalculation('${assessment.code_module}', ${currentAvg}, ${moduleScores.length})">
+                        <div class="text-center mb-2">
+                            <span class="badge bg-primary" style="font-size: 1.2rem;" id="prepScoreDisplay">70%</span>
+                        </div>
+                        
+                        <div id="prepResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mb-3">📅 Study Plan (${daysLeft} days)</h5>
+        <div class="row g-3">
+            ${Array.from({ length: Math.min(daysLeft, 3) }, (_, i) => {
+        const day = i + 1;
+        return `
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <strong>Day ${day}</strong>
+                            </div>
+                            <div class="card-body">
+                                <ul class="mb-0">
+                                    <li>Review Week ${Math.floor(assessment.date / 7) - 1} (2 hrs)</li>
+                                    <li>Practice problems (1 hr)</li>
+                                    <li>Review notes (1 hr)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+    }).join('')}
+        </div>
+
+        <div class="mt-4 text-center">
+            <button class="btn btn-lg btn-primary" onclick="alert('Starting study session...')">
+                <i class="bi bi-play-circle me-2"></i>
+                Start Studying Now
+            </button>
+        </div>
+    `;
+
+    document.getElementById('deadlinePrepContent').innerHTML = content;
+    updatePrepCalculation(assessment.code_module, currentAvg, moduleScores.length);
+    navigateTo('page-deadline-prep');
+}
+
+function updatePrepCalculation(moduleCode, currentAvg, assessmentCount) {
+    const score = document.getElementById('prepScore')?.value || 70;
+    const display = document.getElementById('prepScoreDisplay');
+    const result = document.getElementById('prepResult');
+
+    if (display) display.textContent = score + '%';
+    if (!result) return;
+
+    const newAvg = (currentAvg * assessmentCount + Number(score)) / (assessmentCount + 1);
+    const change = newAvg - currentAvg;
+    const color = change > 0 ? 'success' : 'secondary';
+
+    result.innerHTML = `
+        <div class="alert alert-${color} mt-3 mb-0">
+            <div class="text-center">
+                <h6>Predicted New Average</h6>
+                <h3 class="mb-0">${newAvg.toFixed(1)}%</h3>
+                <small>${change >= 0 ? '+' : ''}${change.toFixed(1)}% change</small>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
