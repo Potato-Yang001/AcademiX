@@ -776,15 +776,40 @@
             </div>
         </div>
 
-        <!-- Course Performance Table -->
+        <!-- Course Performance Analysis -->
         <div id="performance" class="mb-4">
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <i class="bi bi-bar-chart-line me-2"></i>
                     Course Performance Analysis
-                    <small class="d-block mt-1 opacity-75">Academic outcomes and risk assessment</small>
+                    <small class="d-block mt-1 opacity-75">Click on any bar to see detailed breakdown</small>
                 </div>
-                <div class="card-body p-0">
+
+                <!-- NEW: Chart View (shows first) -->
+                <div class="card-body" id="performanceChartView">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Visualization:</strong> This chart shows pass rates across all courses. Green bars
+                        indicate "easy" courses (high pass rate), red bars indicate "killer" courses (low pass rate).
+                    </div>
+                    <div class="chart-container" style="height: 500px;">
+                        <canvas id="coursePassRateChart"></canvas>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-primary" onclick="showAllCourseDetails()">
+                            <i class="bi bi-table me-1"></i> View Detailed Table
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EXISTING: Table View (hidden initially) -->
+                <div class="card-body p-0" id="performanceTableView" style="display: none;">
+                    <div class="p-3 bg-light border-bottom">
+                        <button class="btn btn-secondary btn-sm" onclick="backToPerformanceChart()">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Chart
+                        </button>
+                        <span class="ms-3 text-muted" id="performanceFilterLabel">Showing all courses</span>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="bg-light">
@@ -820,9 +845,59 @@
                 <div class="card-header bg-info text-white">
                     <i class="bi bi-book-fill me-2"></i>
                     Subjects Catalog
-                    <small class="d-block mt-1 opacity-75">Course details and basic information</small>
+                    <small class="d-block mt-1 opacity-75">Click on semester to view subjects</small>
                 </div>
-                <div class="card-body p-0">
+
+                <!-- NEW: Chart View (shows first) -->
+                <div class="card-body" id="subjectsChartView">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Semester Comparison:</strong> This chart shows total subjects offered in October vs
+                        February semesters. Click on any semester to see the detailed subject list.
+                    </div>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="chart-container" style="height: 350px;">
+                                <canvas id="semesterComparisonChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                <div class="card mb-3 border-primary" style="cursor: pointer;"
+                                    onclick="drillDownToSemesterSubjects('October')"
+                                    onmouseenter="this.style.transform='scale(1.05)'"
+                                    onmouseleave="this.style.transform='scale(1)'">
+                                    <div class="card-body text-center">
+                                        <h3 class="text-warning mb-2">📅 October</h3>
+                                        <h1 class="display-4 text-primary mb-0" id="octoberCount">0</h1>
+                                        <p class="text-muted">subjects offered</p>
+                                        <button class="btn btn-primary btn-sm">View Details →</button>
+                                    </div>
+                                </div>
+                                <div class="card border-info" style="cursor: pointer;"
+                                    onclick="drillDownToSemesterSubjects('February')"
+                                    onmouseenter="this.style.transform='scale(1.05)'"
+                                    onmouseleave="this.style.transform='scale(1)'">
+                                    <div class="card-body text-center">
+                                        <h3 class="text-primary mb-2">📅 February</h3>
+                                        <h1 class="display-4 text-info mb-0" id="februaryCount">0</h1>
+                                        <p class="text-muted">subjects offered</p>
+                                        <button class="btn btn-info btn-sm">View Details →</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXISTING: Table View (hidden initially) -->
+                <div class="card-body p-0" id="subjectsTableView" style="display: none;">
+                    <div class="p-3 bg-light border-bottom">
+                        <button class="btn btn-secondary btn-sm" onclick="backToSemesterChart()">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Semester View
+                        </button>
+                        <span class="ms-3 text-muted" id="subjectsFilterLabel">Showing all subjects</span>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="bg-light">
@@ -856,17 +931,38 @@
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-pie-chart-fill me-2"></i>
                     Enrollment Capacity Planning
-                    <small class="d-block mt-1 opacity-75">Seat availability and section planning</small>
+                    <small class="d-block mt-1 opacity-75">Click on utilization bars to see details</small>
                 </div>
-                <div class="card-body">
-                    <div class="row g-4">
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
-                                <strong>Capacity Planning:</strong> Courses at 85%+ capacity may need additional
-                                sections. Max capacity based on classroom size and resources.
-                            </div>
-                        </div>
+
+                <!-- NEW: Chart View (shows first) -->
+                <div class="card-body" id="capacityChartView">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Capacity Overview:</strong> This chart shows utilization levels. Red bars (≥85%)
+                        indicate courses needing additional sections. Click any bar for detailed capacity information.
+                    </div>
+                    <div class="chart-container" style="height: 500px;">
+                        <canvas id="capacityUtilizationChart"></canvas>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-primary" onclick="showAllCapacityDetails()">
+                            <i class="bi bi-table me-1"></i> View Detailed Table
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EXISTING: Table View (hidden initially) -->
+                <div class="card-body" id="capacityTableView" style="display: none;">
+                    <div class="mb-3 bg-light p-3 border-bottom">
+                        <button class="btn btn-secondary btn-sm" onclick="backToCapacityChart()">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Chart
+                        </button>
+                        <span class="ms-3 text-muted" id="capacityFilterLabel">Showing all courses</span>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Capacity Planning:</strong> Courses at 85%+ capacity may need additional sections. Max
+                        capacity based on classroom size and resources.
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover">
@@ -902,9 +998,63 @@
                 <div class="card-header bg-warning text-dark">
                     <i class="bi bi-graph-up me-2"></i>
                     Demand Analysis & Enrollment Trends
-                    <small class="d-block mt-1 opacity-75">Track course popularity and enrollment patterns</small>
+                    <small class="d-block mt-1 opacity-75">Click on trend areas to see course details</small>
                 </div>
-                <div class="card-body p-0">
+
+                <!-- NEW: Chart View (shows first) -->
+                <div class="card-body" id="demandChartView">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Trend Analysis:</strong> This chart shows enrollment demand patterns. Growing courses
+                        appear at the top, declining courses at the bottom. Click any segment for detailed trends.
+                    </div>
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-4">
+                            <div class="card border-success text-center">
+                                <div class="card-body">
+                                    <i class="bi bi-graph-up-arrow fs-1 text-success"></i>
+                                    <h3 class="mt-2 text-success" id="growingCoursesCount">0</h3>
+                                    <p class="mb-0">Growing Demand</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info text-center">
+                                <div class="card-body">
+                                    <i class="bi bi-dash-lg fs-1 text-info"></i>
+                                    <h3 class="mt-2 text-info" id="stableCoursesCount">0</h3>
+                                    <p class="mb-0">Stable Demand</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-danger text-center">
+                                <div class="card-body">
+                                    <i class="bi bi-graph-down-arrow fs-1 text-danger"></i>
+                                    <h3 class="mt-2 text-danger" id="decliningCoursesCount">0</h3>
+                                    <p class="mb-0">Declining Demand</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="demandTrendsChart"></canvas>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-warning" onclick="showAllDemandDetails()">
+                            <i class="bi bi-table me-1"></i> View Detailed Table
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EXISTING: Table View (hidden initially) -->
+                <div class="card-body p-0" id="demandTableView" style="display: none;">
+                    <div class="p-3 bg-light border-bottom">
+                        <button class="btn btn-secondary btn-sm" onclick="backToDemandChart()">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Chart
+                        </button>
+                        <span class="ms-3 text-muted" id="demandFilterLabel">Showing all courses</span>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="bg-light">

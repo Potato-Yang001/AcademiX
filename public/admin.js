@@ -56,12 +56,19 @@ function renderPageContent(pageName) {
             renderPassFailByCourse();
             break;
         case 'courses':
-            // Ensure course-related tables are rendered when viewing the Courses page
             try {
+                renderCoursePassRateChart(window.globalCourseData || []);
                 renderCoursePerformanceTable(null, window.globalCourseData || []);
+
+                renderSemesterComparisonChart(window.allSubjectsData || allSubjectsData || []); // ← ADD
                 renderSubjectsTable(window.allSubjectsData || allSubjectsData || []);
+
+                renderCapacityUtilizationChart(window.allSubjectsData || allSubjectsData || []); // ← ADD
                 renderCapacityTable(window.allSubjectsData || allSubjectsData || []);
+
+                renderDemandTrendsChart(window.allSubjectsData || allSubjectsData || []); // ← ADD
                 renderDemandTable(window.allSubjectsData || allSubjectsData || []);
+
                 updateInsightCards(window.globalCourseData || []);
             } catch (e) {
                 console.warn('⚠️ Error rendering courses page:', e);
@@ -202,25 +209,54 @@ async function loadAdminData() {
             allStudentsData = data.students;
         }
 
-        // ✅ SIMULATE MODULE REGISTRATION COUNTS
+        allStudentsData = allStudentsData.map(student => {
+            if (student.studied_credits >= 90 && student.final_result === 'Pass') {
+                return { ...student, studied_credits: 120 };
+            }
+            if (student.studied_credits >= 90 && student.final_result === 'Distinction') {
+                return { ...student, studied_credits: 120 };
+            }
+            return student;
+        });
+
+        // ✅ REALISTIC MODULE REGISTRATION COUNTS - MAJORITY ARE FULL-TIME
         allStudentsData = allStudentsData.map(student => {
             let moduleCount = 0;
 
-            // Calculate module count based on credits and status
-            if (student.final_result === 'Withdrawn') {
-                moduleCount = 0; // Withdrawn = not registered
-            } else if (student.studied_credits === 0) {
-                moduleCount = 0; // New students = not registered yet
-            } else if (student.studied_credits >= 90) {
-                moduleCount = 0; // Near graduation = completed, not currently registered
-            } else if (student.studied_credits < 30) {
-                // 70% have 0 modules (capacity issues), 30% have 1
-                moduleCount = Math.random() < 0.7 ? 0 : 1;
-            } else if (student.studied_credits < 60) {
-                moduleCount = 1; // Mid-range = 1 module
-            } else {
-                // 60+ credits = 2 or 3 modules
-                moduleCount = Math.random() < 0.6 ? 2 : 3;
+            // STRICT CONDITIONS for 0 modules (should be minority)
+            if (student.studied_credits === 0) {
+                // Only 30% of new students have 0 modules (rest are already enrolled)
+                moduleCount = Math.random() < 0.3 ? 0 : 2;
+            }
+            else if (student.studied_credits >= 120) {
+                moduleCount = 0; // Graduation phase - completed all requirements
+            }
+            else if (student.final_result === 'Withdrawn') {
+                // Only 50% of withdrawn students have 0 modules
+                moduleCount = Math.random() < 0.5 ? 0 : 1;
+            }
+            else {
+                // ✅ MAJORITY: Active students (1-119 credits) = FULL-TIME (2-3 modules)
+                if (student.studied_credits < 30) {
+                    // Early stage: Mostly 2-3 modules (80% full-time)
+                    const rand = Math.random();
+                    if (rand < 0.1) moduleCount = 1;      // 10% part-time
+                    else if (rand < 0.6) moduleCount = 2; // 50% normal load
+                    else moduleCount = 3;                  // 40% heavy load
+                }
+                else if (student.studied_credits < 60) {
+                    // Mid-stage: Mostly 2-3 modules (90% full-time)
+                    const rand = Math.random();
+                    if (rand < 0.05) moduleCount = 1;     // 5% part-time
+                    else if (rand < 0.5) moduleCount = 2; // 45% normal load
+                    else moduleCount = 3;                  // 50% heavy load
+                }
+                else {
+                    // Advanced stage (60-119 credits): Mostly 3 modules (95% full-time)
+                    const rand = Math.random();
+                    if (rand < 0.05) moduleCount = 2;     // 5% reduced load
+                    else moduleCount = 3;                  // 95% full load
+                }
             }
 
             return {
@@ -275,9 +311,13 @@ async function loadAdminData() {
         updateInsightCards(courseData); // ✅ Use the same courseData
         renderEnrolmentChart(data.enrolments);
         renderOutcomeChart(data.outcomes);
-        renderCoursePerformanceTable(data, courseData); // ✅ Pass the same courseData
+        renderCoursePassRateChart(courseData);
+        renderCoursePerformanceTable(data, courseData);
+        renderCapacityUtilizationChart(allSubjectsData);
         renderCapacityTable(allSubjectsData);
+        renderSemesterComparisonChart(allSubjectsData);
         renderSubjectsTable(allSubjectsData);
+        renderDemandTrendsChart(allSubjectsData);
         renderDemandTable(allSubjectsData);
         renderGenderChart(data.gender);
         renderAgeChart(data.age);
@@ -402,6 +442,488 @@ function renderAtRiskAlerts(atRiskData) {
     if (lowScoreEl) lowScoreEl.textContent = atRiskData.lowScoreStudents.toLocaleString();
     if (highWithdrawalEl) highWithdrawalEl.textContent = atRiskData.highWithdrawalCourses;
     if (lowEngagementEl) lowEngagementEl.textContent = atRiskData.lowEngagementStudents.toLocaleString();
+}
+// ============================================
+// SUBJECTS CATALOG - SEMESTER VISUALIZATION
+// ============================================
+
+let semesterChartInstance = null;
+let currentSemesterFilter = null;
+
+function renderSemesterComparisonChart(subjects) {
+    const ctx = document.getElementById('semesterComparisonChart');
+    if (!ctx) return;
+
+    // Count subjects by semester
+    const octoberSubjects = subjects.filter(s => s.code_presentation.includes('J')).length;
+    const februarySubjects = subjects.filter(s => s.code_presentation.includes('B')).length;
+
+    // Update count displays
+    document.getElementById('octoberCount').textContent = octoberSubjects;
+    document.getElementById('februaryCount').textContent = februarySubjects;
+
+    // Destroy existing chart
+    if (semesterChartInstance) {
+        semesterChartInstance.destroy();
+    }
+
+    semesterChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['📅 October', '📅 February'],
+            datasets: [{
+                data: [octoberSubjects, februarySubjects],
+                backgroundColor: ['#ffc107', '#2196f3'],
+                borderColor: ['#d39e00', '#1976d2'],
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const semester = index === 0 ? 'October' : 'February';
+                    drillDownToSemesterSubjects(semester);
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 14 },
+                        padding: 20
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Subjects by Semester',
+                    font: { size: 16, weight: 'bold' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const total = octoberSubjects + februarySubjects;
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed} subjects (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    console.log('✅ Semester comparison chart rendered');
+}
+
+function drillDownToSemesterSubjects(semester) {
+    console.log('🔍 Drilling down to semester:', semester);
+
+    currentSemesterFilter = semester;
+
+    // Hide chart view, show table view
+    document.getElementById('subjectsChartView').style.display = 'none';
+    document.getElementById('subjectsTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('subjectsFilterLabel').textContent =
+        `Showing: ${semester} semester subjects`;
+
+    // Filter subjects by semester
+    const semesterCode = semester === 'October' ? 'J' : 'B';
+    const filteredSubjects = allSubjectsData.filter(s =>
+        s.code_presentation.includes(semesterCode)
+    );
+
+    renderSubjectsTable(filteredSubjects);
+
+    // Scroll to table
+    document.getElementById('subjects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function backToSemesterChart() {
+    currentSemesterFilter = null;
+
+    // Show chart view, hide table view
+    document.getElementById('subjectsChartView').style.display = 'block';
+    document.getElementById('subjectsTableView').style.display = 'none';
+
+    // Scroll to chart
+    document.getElementById('subjects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================
+// CAPACITY PLANNING - UTILIZATION VISUALIZATION
+// ============================================
+
+let capacityChartInstance = null;
+let currentCapacityFilter = null;
+
+function renderCapacityUtilizationChart(subjects) {
+    const ctx = document.getElementById('capacityUtilizationChart');
+    if (!ctx) return;
+
+    // Calculate capacity data for each subject
+    const capacityData = subjects.map(subject => {
+        let maxCapacity;
+        if (subject.enrolments <= 500) {
+            maxCapacity = Math.ceil(subject.enrolments / 50) * 50 + 50;
+        } else if (subject.enrolments <= 1500) {
+            maxCapacity = Math.ceil(subject.enrolments / 100) * 100 + 100;
+        } else {
+            maxCapacity = Math.ceil(subject.enrolments / 200) * 200 + 200;
+        }
+
+        const utilizationPercent = ((subject.enrolments / maxCapacity) * 100).toFixed(0);
+
+        return {
+            label: `${subject.code_module}-${subject.code_presentation}`,
+            utilization: parseFloat(utilizationPercent),
+            enrolled: subject.enrolments,
+            maxCapacity: maxCapacity,
+            subject: subject
+        };
+    });
+
+    // Sort by utilization (highest first)
+    capacityData.sort((a, b) => b.utilization - a.utilization);
+
+    // Destroy existing chart
+    if (capacityChartInstance) {
+        capacityChartInstance.destroy();
+    }
+
+    capacityChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: capacityData.map(c => c.label),
+            datasets: [{
+                label: 'Utilization (%)',
+                data: capacityData.map(c => c.utilization),
+                backgroundColor: capacityData.map(c => {
+                    if (c.utilization >= 85) return '#dc3545'; // Red - Critical
+                    if (c.utilization >= 70) return '#ffc107'; // Yellow - Warning
+                    return '#28a745'; // Green - Good
+                }),
+                borderColor: capacityData.map(c => {
+                    if (c.utilization >= 85) return '#bd2130';
+                    if (c.utilization >= 70) return '#d39e00';
+                    return '#1e7e34';
+                }),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const clickedCourse = capacityData[index];
+                    drillDownToCapacityDetails(clickedCourse.subject);
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Course Capacity Utilization - Click any bar to see details',
+                    font: { size: 16, weight: 'bold' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const course = capacityData[context.dataIndex];
+                            return [
+                                `Utilization: ${course.utilization}%`,
+                                `Enrolled: ${course.enrolled}`,
+                                `Max Capacity: ${course.maxCapacity}`,
+                                `Available: ${course.maxCapacity - course.enrolled} seats`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Utilization (%)'
+                    },
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Course Code'
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 90,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    console.log('✅ Capacity utilization chart rendered');
+}
+
+function drillDownToCapacityDetails(subject) {
+    console.log('🔍 Drilling down to capacity for:', subject.code_module);
+
+    currentCapacityFilter = subject;
+
+    // Hide chart view, show table view
+    document.getElementById('capacityChartView').style.display = 'none';
+    document.getElementById('capacityTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('capacityFilterLabel').textContent =
+        `Showing: ${subject.code_module}-${subject.code_presentation}`;
+
+    // Filter and render table
+    const filteredData = allSubjectsData.filter(s =>
+        s.code_module === subject.code_module && s.code_presentation === subject.code_presentation
+    );
+
+    renderCapacityTable(filteredData);
+
+    // Scroll to table
+    document.getElementById('capacity').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showAllCapacityDetails() {
+    currentCapacityFilter = null;
+
+    // Hide chart view, show table view
+    document.getElementById('capacityChartView').style.display = 'none';
+    document.getElementById('capacityTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('capacityFilterLabel').textContent = 'Showing all courses';
+
+    // Render full table
+    renderCapacityTable(allSubjectsData);
+
+    // Scroll to table
+    document.getElementById('capacity').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function backToCapacityChart() {
+    currentCapacityFilter = null;
+
+    // Show chart view, hide table view
+    document.getElementById('capacityChartView').style.display = 'block';
+    document.getElementById('capacityTableView').style.display = 'none';
+
+    // Scroll to chart
+    document.getElementById('capacity').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================
+// DEMAND ANALYSIS - ENROLLMENT TRENDS
+// ============================================
+
+let demandChartInstance = null;
+let currentDemandFilter = null;
+
+function renderDemandTrendsChart(subjects) {
+    const ctx = document.getElementById('demandTrendsChart');
+    if (!ctx) return;
+
+    // Calculate trends for each subject
+    const demandData = subjects.map(subject => {
+        const trendRandom = Math.random();
+        let trend, trendPercent, category;
+
+        if (trendRandom > 0.6) {
+            // Growing
+            trendPercent = Math.floor(Math.random() * 20) + 5;
+            trend = 'growing';
+            category = 'Growing';
+        } else if (trendRandom > 0.3) {
+            // Stable
+            trendPercent = 0;
+            trend = 'stable';
+            category = 'Stable';
+        } else {
+            // Declining
+            trendPercent = -(Math.floor(Math.random() * 15) + 5);
+            trend = 'declining';
+            category = 'Declining';
+        }
+
+        return {
+            label: `${subject.code_module}-${subject.code_presentation}`,
+            enrollment: subject.enrolments,
+            trendPercent: trendPercent,
+            trend: trend,
+            category: category,
+            subject: subject
+        };
+    });
+
+    // Sort by trend (growing first, declining last)
+    demandData.sort((a, b) => b.trendPercent - a.trendPercent);
+
+    // Count by category
+    const growing = demandData.filter(d => d.trend === 'growing').length;
+    const stable = demandData.filter(d => d.trend === 'stable').length;
+    const declining = demandData.filter(d => d.trend === 'declining').length;
+
+    document.getElementById('growingCoursesCount').textContent = growing;
+    document.getElementById('stableCoursesCount').textContent = stable;
+    document.getElementById('decliningCoursesCount').textContent = declining;
+
+    // Destroy existing chart
+    if (demandChartInstance) {
+        demandChartInstance.destroy();
+    }
+
+    demandChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: demandData.map(d => d.label),
+            datasets: [{
+                label: 'Trend (%)',
+                data: demandData.map(d => d.trendPercent),
+                backgroundColor: demandData.map(d => {
+                    if (d.trend === 'growing') return '#28a745';
+                    if (d.trend === 'stable') return '#17a2b8';
+                    return '#dc3545';
+                }),
+                borderColor: demandData.map(d => {
+                    if (d.trend === 'growing') return '#1e7e34';
+                    if (d.trend === 'stable') return '#117a8b';
+                    return '#bd2130';
+                }),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const clickedCourse = demandData[index];
+                    drillDownToDemandDetails(clickedCourse.subject);
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Enrollment Trend by Course - Click any bar to see details',
+                    font: { size: 16, weight: 'bold' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const course = demandData[context.dataIndex];
+                            const sign = course.trendPercent > 0 ? '+' : '';
+                            return [
+                                `Trend: ${sign}${course.trendPercent}%`,
+                                `Current: ${course.enrollment} students`,
+                                `Status: ${course.category}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Trend (%)'
+                    },
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Course Code'
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 90,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    console.log('✅ Demand trends chart rendered');
+}
+
+function drillDownToDemandDetails(subject) {
+    console.log('🔍 Drilling down to demand for:', subject.code_module);
+
+    currentDemandFilter = subject;
+
+    // Hide chart view, show table view
+    document.getElementById('demandChartView').style.display = 'none';
+    document.getElementById('demandTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('demandFilterLabel').textContent =
+        `Showing: ${subject.code_module}-${subject.code_presentation}`;
+
+    // Filter and render table
+    const filteredData = allSubjectsData.filter(s =>
+        s.code_module === subject.code_module && s.code_presentation === subject.code_presentation
+    );
+
+    renderDemandTable(filteredData);
+
+    // Scroll to table
+    document.getElementById('demand').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showAllDemandDetails() {
+    currentDemandFilter = null;
+
+    // Hide chart view, show table view
+    document.getElementById('demandChartView').style.display = 'none';
+    document.getElementById('demandTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('demandFilterLabel').textContent = 'Showing all courses';
+
+    // Render full table
+    renderDemandTable(allSubjectsData);
+
+    // Scroll to table
+    document.getElementById('demand').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function backToDemandChart() {
+    currentDemandFilter = null;
+
+    // Show chart view, hide table view
+    document.getElementById('demandChartView').style.display = 'block';
+    document.getElementById('demandTableView').style.display = 'none';
+
+    // Scroll to chart
+    document.getElementById('demand').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================
@@ -609,6 +1131,163 @@ function renderCapacityTable(subjects) {
     }).join('');
 
     tbody.innerHTML = html;
+}
+
+// ============================================
+// COURSE PERFORMANCE - VISUALIZATION FIRST
+// ============================================
+
+let coursePassRateChartInstance = null;
+let currentCourseFilter = null;
+
+function renderCoursePassRateChart(courseData) {
+    const ctx = document.getElementById('coursePassRateChart');
+    if (!ctx) return;
+
+    // Sort by pass rate to show "killer" vs "easy" courses
+    const sortedData = [...courseData].sort((a, b) => a.passRate - b.passRate);
+
+    // Destroy existing chart
+    if (coursePassRateChartInstance) {
+        coursePassRateChartInstance.destroy();
+    }
+
+    coursePassRateChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sortedData.map(c => `${c.module}-${c.presentation}`),
+            datasets: [{
+                label: 'Pass Rate (%)',
+                data: sortedData.map(c => c.passRate),
+                backgroundColor: sortedData.map(c => {
+                    // Color coding: Red = killer course, Yellow = medium, Green = easy
+                    if (c.passRate < 50) return '#dc3545'; // Red - Killer course
+                    if (c.passRate < 70) return '#ffc107'; // Yellow - Moderate
+                    return '#28a745'; // Green - Easy course
+                }),
+                borderColor: sortedData.map(c => {
+                    if (c.passRate < 50) return '#bd2130';
+                    if (c.passRate < 70) return '#d39e00';
+                    return '#1e7e34';
+                }),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const clickedCourse = sortedData[index];
+                    drillDownToCourseDetails(clickedCourse);
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Course Pass Rates - Click any bar to see details',
+                    font: { size: 16, weight: 'bold' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const course = sortedData[context.dataIndex];
+                            return [
+                                `Pass Rate: ${course.passRate}%`,
+                                `Fail Rate: ${course.failRate}%`,
+                                `Students: ${course.enrollments}`,
+                                `Avg Score: ${course.avgScore}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Pass Rate (%)'
+                    },
+                    ticks: {
+                        callback: function (value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Course Code'
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 90,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    console.log('✅ Course pass rate chart rendered');
+}
+
+function drillDownToCourseDetails(course) {
+    console.log('🔍 Drilling down to course:', course.module);
+
+    currentCourseFilter = course;
+
+    // Hide chart view, show table view
+    document.getElementById('performanceChartView').style.display = 'none';
+    document.getElementById('performanceTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('performanceFilterLabel').textContent =
+        `Showing: ${course.module}-${course.presentation}`;
+
+    // Filter and render table
+    const filteredData = window.globalCourseData.filter(c =>
+        c.module === course.module && c.presentation === course.presentation
+    );
+
+    renderCoursePerformanceTable(null, filteredData);
+
+    // Scroll to table
+    document.getElementById('performance').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showAllCourseDetails() {
+    currentCourseFilter = null;
+
+    // Hide chart view, show table view
+    document.getElementById('performanceChartView').style.display = 'none';
+    document.getElementById('performanceTableView').style.display = 'block';
+
+    // Update filter label
+    document.getElementById('performanceFilterLabel').textContent = 'Showing all courses';
+
+    // Render full table
+    renderCoursePerformanceTable(null, window.globalCourseData);
+
+    // Scroll to table
+    document.getElementById('performance').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function backToPerformanceChart() {
+    currentCourseFilter = null;
+
+    // Show chart view, hide table view
+    document.getElementById('performanceChartView').style.display = 'block';
+    document.getElementById('performanceTableView').style.display = 'none';
+
+    // Scroll to chart
+    document.getElementById('performance').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================
@@ -1254,15 +1933,15 @@ if ('performance' in window) {
 /* ============================================
 // ✨ ENHANCED INTERACTIVE FEATURES ✨
 // ============================================
-
+ 
 // Global variables for interactive features
 let timelineData = [];
 let currentTimelineFilter = 'all';
-
+ 
 // 🎯 FEATURE 1: INTERACTIVE STUDY TIMELINE
 function generateInteractiveTimeline(data) {
     timelineData = [];
-
+ 
     if (data.scores && data.scores.length > 0) {
         data.scores.forEach(score => {
             timelineData.push({
@@ -1277,7 +1956,7 @@ function generateInteractiveTimeline(data) {
             });
         });
     }
-
+ 
     if (data.activity && data.activity.length > 0) {
         data.activity.forEach(act => {
             if (act.sum_click > 50) {
@@ -1292,7 +1971,7 @@ function generateInteractiveTimeline(data) {
             }
         });
     }
-
+ 
     if (data.assessments && data.currentDay) {
         data.assessments.forEach(assessment => {
             if (assessment.date > data.currentDay) {
@@ -1309,7 +1988,7 @@ function generateInteractiveTimeline(data) {
             }
         });
     }
-
+ 
     if (data.scores && data.scores.length > 0) {
         data.scores.filter(s => s.score >= 80).forEach(score => {
             timelineData.push({
@@ -1323,15 +2002,15 @@ function generateInteractiveTimeline(data) {
             });
         });
     }
-
+ 
     timelineData.sort((a, b) => a.date - b.date);
-
+ 
     renderInteractiveTimeline();
 }
-
+ 
 function renderInteractiveTimeline() {
     let container = document.getElementById('interactiveTimeline');
-
+ 
     if (!container) {
         const updatesSection = document.querySelector('#updatesFeed').closest('.col-12');
         const timelineSection = document.createElement('div');
@@ -1373,20 +2052,20 @@ function renderInteractiveTimeline() {
                 </div>
             </div>
         `;
-
+ 
         if (updatesSection && updatesSection.nextElementSibling) {
             updatesSection.parentNode.insertBefore(timelineSection, updatesSection.nextElementSibling);
         } else if (updatesSection) {
             updatesSection.parentNode.appendChild(timelineSection);
         }
-
+ 
         container = document.getElementById('interactiveTimeline');
     }
-
+ 
     const filtered = currentTimelineFilter === 'all'
         ? timelineData
         : timelineData.filter(item => item.type === currentTimelineFilter);
-
+ 
     if (filtered.length === 0) {
         container.innerHTML = `
             <div class="alert alert-info text-center">
@@ -1396,7 +2075,7 @@ function renderInteractiveTimeline() {
         `;
         return;
     }
-
+ 
     const html = `
         <div class="timeline-wrapper position-relative" style="padding: 20px 0;">
             <div class="timeline-line position-absolute" 
@@ -1452,7 +2131,7 @@ function renderInteractiveTimeline() {
             `).join('')}
         </div>
     `;
-
+ 
     container.innerHTML = html;
 } */
 
@@ -2315,36 +2994,22 @@ function assignStudentReason(student) {
     let reason = '';
     let reasonKey = '';
 
-    if (student.final_result === 'Withdrawn') {
-        reason = '⏸️ Deferred';
-        reasonKey = 'deferred';
-    }
-    else if (student.studied_credits === 0) {
+    // Only 2 reasons: New student (0 credits) or Graduation phase (≥120 credits)
+    if (student.studied_credits === 0) {
         reason = '🆕 New student';
         reasonKey = 'new';
     }
-    else if (student.studied_credits >= 90) {
+    else if (student.studied_credits >= 120) {
         reason = '🎓 Graduation phase';
         reasonKey = 'graduation';
-    }
-    else if (student.studied_credits >= 60) {
-        reason = '🎓 Graduation phase';
-        reasonKey = 'graduation';
-    }
-    else if (student.studied_credits < 30 && (parseInt(student.id_student) % 10) < 4) {
-        reason = '⚠️ Capacity / timetable constraints';
-        reasonKey = 'capacity';
-    }
-    else if (student.studied_credits < 15) {
-        reason = '🆕 New student';
-        reasonKey = 'new';
     }
     else {
-        reason = '⚠️ Capacity / timetable constraints';
-        reasonKey = 'capacity';
+        // Students with 1-119 credits shouldn't have 0 modules - this is data anomaly
+        reason = '⚠️ Data anomaly';
+        reasonKey = 'anomaly';
     }
 
-    console.log(`📝 Assigning to ${student.id_student}: reason="${reason}", key="${reasonKey}"`);
+    console.log(`📝 Assigning to ${student.id_student}: reason="${reason}", key="${reasonKey}", credits="${student.studied_credits}"`);
 
     return { ...student, assignedReason: reason, reasonKey: reasonKey };
 }
@@ -2447,7 +3112,7 @@ function renderReasonsSummary() {
     const zeroModuleStudents = allStudentsData.filter(s => s.current_modules === 0);
     const total = zeroModuleStudents.length;
 
-    let newStudents = 0, graduationPhase = 0, deferred = 0, capacity = 0;
+    let newStudents = 0, graduationPhase = 0;
 
     // ✅ Use the shared function
     zeroModuleStudents.forEach(s => {
@@ -2456,8 +3121,6 @@ function renderReasonsSummary() {
         switch (assigned.reasonKey) {
             case 'new': newStudents++; break;
             case 'graduation': graduationPhase++; break;
-            case 'deferred': deferred++; break;
-            case 'capacity': capacity++; break;
         }
     });
 
@@ -2469,14 +3132,6 @@ function renderReasonsSummary() {
         {
             icon: '🎓', label: 'Graduation phase', count: graduationPhase,
             percentage: ((graduationPhase / total) * 100).toFixed(1), key: 'graduation'
-        },
-        {
-            icon: '⏸️', label: 'Deferred', count: deferred,
-            percentage: ((deferred / total) * 100).toFixed(1), key: 'deferred'
-        },
-        {
-            icon: '⚠️', label: 'Capacity / timetable constraints', count: capacity,
-            percentage: ((capacity / total) * 100).toFixed(1), key: 'capacity'
         }
     ];
 
@@ -2566,10 +3221,20 @@ function renderStudentList(pageNumber = 1) {
     else if (selectedStudentCategory === 'twoPlus') {
         students = allStudentsData
             .filter(s => s.current_modules >= 2)
-            .map(s => ({
-                ...s,
-                assignedReason: '✅ Full-time active learner'
-            }));
+            .map(s => {
+                // ✅ CHECK: If student has 0 credits but 2+ modules, they're new students just enrolled
+                if (s.studied_credits === 0) {
+                    return {
+                        ...s,
+                        assignedReason: '🆕 New student (just enrolled)'
+                    };
+                } else {
+                    return {
+                        ...s,
+                        assignedReason: '✅ Full-time active learner'
+                    };
+                }
+            });
     }
 
     // ✅ Store full list for pagination
@@ -2712,7 +3377,7 @@ function renderStudentProfile(studentId) {
 
     const creditPercentage = ((student.studied_credits || 0) / 120 * 100).toFixed(0);
     const reason = student.studied_credits === 0 ? 'New student' :
-        student.studied_credits >= 90 ? 'Graduation phase' :
+        student.studied_credits >= 120 ? 'Graduation phase' :
             student.final_result === 'Withdrawn' ? 'Deferred' :
                 'Active enrollment';
 
@@ -2766,9 +3431,6 @@ function renderStudentProfile(studentId) {
                     <div class="card-body">
                         <button class="btn btn-primary me-2">
                             <i class="bi bi-envelope"></i> Notify Student
-                        </button>
-                        <button class="btn btn-danger">
-                            <i class="bi bi-flag"></i> Flag for Academic Office
                         </button>
                     </div>
                 </div>
