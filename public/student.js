@@ -27,15 +27,12 @@ function navigateTo(pageId) {
 async function loadStudentData(studentId = "11391") {
     try {
         const res = await fetch(`/api/student/${studentId}`);
-        const data = await res.json();
+        let data = await res.json(); // ✅ Changed to 'let' so we can reassign
 
         if (!data.student) {
             alert("Student not found!");
             return;
         }
-
-        // Store globally
-        window.studentData = data;
 
         // Generate missing data
         if (!data.currentDay) {
@@ -45,6 +42,12 @@ async function loadStudentData(studentId = "11391") {
             data.assessments = generateAssessmentsFromScores(data.scores);
         }
 
+        // ✅ MOVED INSIDE try block - ensure multiple modules BEFORE storing
+        data = ensureMultipleModules(data);
+
+        // Store globally AFTER ensuring multiple modules
+        window.studentData = data;
+
         // Render ONLY main dashboard (no more clutter!)
         renderMainDashboard();
 
@@ -52,6 +55,45 @@ async function loadStudentData(studentId = "11391") {
         console.error("Error loading student data:", error);
         alert("Error loading student data");
     }
+}
+
+// ============================================
+// ENSURE MULTIPLE MODULES FOR COMPARISON
+// ============================================
+function ensureMultipleModules(data) {
+    if (!data.scores || data.scores.length === 0) return data;
+
+    const modules = [...new Set(data.scores.map(s => s.code_module))];
+
+    // If only 1 module, duplicate it as a second module
+    if (modules.length === 1) {
+        const originalModule = modules[0];
+        const newModule = originalModule === 'AAA' ? 'BBB' : 'AAA';
+
+        // ✅ Make the second module AT RISK (scores between 20-38%)
+        const duplicatedScores = data.scores.map(s => ({
+            ...s,
+            code_module: newModule,
+            // ✅ Set scores to be FAILING (20-38% range)
+            score: Math.floor(Math.random() * 19) + 20 // Random between 20-38
+        }));
+
+        data.scores = [...data.scores, ...duplicatedScores];
+
+        // Duplicate assessments if they exist
+        if (data.assessments) {
+            const duplicatedAssessments = data.assessments
+                .filter(a => a.code_module === originalModule)
+                .map(a => ({
+                    ...a,
+                    code_module: newModule
+                }));
+
+            data.assessments = [...data.assessments, ...duplicatedAssessments];
+        }
+    }
+
+    return data;
 }
 
 // ============================================
@@ -734,7 +776,7 @@ function renderConsistencyTracker(activity) {
     container.innerHTML = html;
 }
 
-// 🚨 1. URGENT ACTIONS PANEL
+// 🚨 1. URGENT ACTIONS PANEL WITH GANTT CHART (DEADLINES ONLY)
 function renderUrgentActionsPanel(data) {
     const container = document.getElementById("urgentActions");
     if (!container) return;
@@ -742,57 +784,40 @@ function renderUrgentActionsPanel(data) {
     const urgentItems = [];
     const currentDay = data.currentDay || 0;
 
-    // Check for urgent deadlines (< 7 days)
+    // ✅ ONLY Check for urgent deadlines (< 14 days for Gantt visibility)
     if (data.assessments) {
         const urgent = data.assessments
-            .filter(a => a.date > currentDay && (a.date - currentDay) < 7)
+            .filter(a => a.date > currentDay && (a.date - currentDay) < 14)
             .sort((a, b) => a.date - b.date);
 
         urgent.forEach(a => {
             const daysLeft = a.date - currentDay;
+            const duration = a.assessment_type === 'Exam' ? 7 : 14; // Exam: 7 days, TMA: 14 days prep time
+
             urgentItems.push({
-                priority: daysLeft < 3 ? 'CRITICAL' : 'HIGH',
-                color: daysLeft < 3 ? 'danger' : 'warning',
+                priority: daysLeft < 3 ? 'CRITICAL' : daysLeft < 7 ? 'HIGH' : 'MEDIUM',
+                color: daysLeft < 3 ? 'danger' : daysLeft < 7 ? 'warning' : 'info',
                 icon: 'clock-fill',
-                title: `${a.assessment_type} Due in ${daysLeft} Days`,
-                description: `${a.code_module} - ${a.code_presentation}`,
-                action: 'Submit Now',
+                title: `${a.assessment_type} - ${a.code_module}`,
+                description: `${a.code_presentation}`,
+                daysLeft: daysLeft,
+                deadline: a.date,
+                duration: duration,
+                module: a.code_module,
+                type: a.assessment_type,
+                action: 'Prepare Now',
                 actionLink: '#submissions'
             });
         });
     }
 
-    // Check for failing modules
-    if (data.scores) {
-        const failingModules = {};
-        data.scores.forEach(s => {
-            if (s.score < 40) {
-                if (!failingModules[s.code_module]) {
-                    failingModules[s.code_module] = [];
-                }
-                failingModules[s.code_module].push(s.score);
-            }
-        });
-
-        Object.entries(failingModules).forEach(([module, scores]) => {
-            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            urgentItems.push({
-                priority: 'HIGH',
-                color: 'danger',
-                icon: 'exclamation-triangle-fill',
-                title: `${module}: Below Passing Grade`,
-                description: `Current average: ${avg.toFixed(1)}% (Need 40%)`,
-                action: 'Get Help',
-                actionLink: '#help'
-            });
-        });
-    }
+    // ❌ REMOVED: Failing modules section - they go in separate card
 
     if (urgentItems.length === 0) {
         container.innerHTML = `
             <div class="alert alert-success">
                 <i class="bi bi-check-circle-fill me-2"></i>
-                <strong>All Clear!</strong> No urgent actions required right now.
+                <strong>All Clear!</strong> No urgent deadlines in the next 14 days.
             </div>
         `;
         return;
@@ -803,10 +828,11 @@ function renderUrgentActionsPanel(data) {
             <div class="card-header bg-danger text-white">
                 <h5 class="mb-0">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    🚨 Urgent Actions Required
+                    🚨 Urgent Actions Required (${urgentItems.length} deadline${urgentItems.length !== 1 ? 's' : ''})
                 </h5>
             </div>
             <div class="card-body p-0">
+                <!-- Urgent Deadline Items List -->
                 ${urgentItems.map((item, index) => `
                     <div class="p-3 border-bottom ${index === 0 ? 'bg-light' : ''}">
                         <div class="d-flex justify-content-between align-items-start">
@@ -817,7 +843,17 @@ function renderUrgentActionsPanel(data) {
                                     ${item.title}
                                 </h6>
                                 <p class="text-muted mb-2 small">${item.description}</p>
-                                <button class="btn btn-sm btn-${item.color}">
+                                <div class="mb-2">
+                                    <span class="badge bg-light text-dark">
+                                        <i class="bi bi-calendar-event me-1"></i>
+                                        <strong>${item.daysLeft} days left</strong>
+                                    </span>
+                                    <span class="badge bg-light text-dark ms-2">
+                                        <i class="bi bi-hourglass-split me-1"></i>
+                                        ${item.duration} days prep time
+                                    </span>
+                                </div>
+                                <button class="btn btn-sm btn-${item.color}" onclick='showDeadlinePrep(${JSON.stringify({ code_module: item.module, assessment_type: item.type, date: item.deadline, code_presentation: item.description })})'>
                                     <i class="bi bi-arrow-right-circle me-1"></i>
                                     ${item.action}
                                 </button>
@@ -832,10 +868,114 @@ function renderUrgentActionsPanel(data) {
                     </div>
                 `).join('')}
             </div>
+
+            <!-- Gantt Chart Timeline -->
+            <div class="card-footer bg-light">
+                <h6 class="mb-3">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    📊 Deadline Timeline (Gantt Chart)
+                </h6>
+                ${renderGanttChart(urgentItems, currentDay)}
+            </div>
         </div>
     `;
 
     container.innerHTML = html;
+}
+
+
+// ============================================
+// RENDER GANTT CHART FOR DEADLINES
+// ============================================
+function renderGanttChart(deadlineItems, currentDay) {
+    if (!deadlineItems || deadlineItems.length === 0) return '';
+
+    // Find the furthest deadline to scale the chart
+    const maxDays = Math.max(...deadlineItems.map(item => item.daysLeft));
+    const chartWidth = 100; // percentage
+
+    const ganttHTML = `
+        <div class="gantt-chart-container">
+            <!-- Timeline Header -->
+            <div class="d-flex justify-content-between align-items-center mb-2 px-3">
+                <small class="text-muted fw-bold">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    Today (Day ${currentDay})
+                </small>
+                <small class="text-muted fw-bold">
+                    <i class="bi bi-calendar-x me-1"></i>
+                    +${maxDays} days
+                </small>
+            </div>
+
+            <!-- Time Scale -->
+            <div class="position-relative mb-3" style="height: 40px; background: linear-gradient(90deg, #e3f2fd 0%, #fff 100%); border-radius: 8px; border: 2px solid #90caf9;">
+                <div class="d-flex justify-content-between align-items-center h-100 px-2">
+                    ${Array.from({ length: 5 }, (_, i) => {
+        const day = Math.round((maxDays / 4) * i);
+        return `
+                            <div class="text-center" style="position: relative;">
+                                <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 2px; height: 60px; background: #ccc;"></div>
+                                <small class="fw-bold text-primary" style="position: relative; z-index: 1; background: white; padding: 0 4px;">
+                                    ${i === 0 ? 'Now' : `+${day}d`}
+                                </small>
+                            </div>
+                        `;
+    }).join('')}
+                </div>
+            </div>
+
+            <!-- Gantt Bars -->
+            <div class="gantt-bars">
+                ${deadlineItems.map((item, index) => {
+        const position = (item.daysLeft / maxDays) * chartWidth;
+        const barColor = item.color === 'danger' ? '#dc3545' : item.color === 'warning' ? '#ffc107' : '#0dcaf0';
+
+        return `
+                        <div class="gantt-bar-row mb-3 p-2 rounded" style="background: #f8f9fa; position: relative;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <strong>${item.title}</strong>
+                                    <span class="badge bg-${item.color} ms-2">${item.daysLeft}d left</span>
+                                </div>
+                                <small class="text-muted">Duration: ${item.duration} days</small>
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div class="position-relative" style="height: 30px; background: #e9ecef; border-radius: 8px; overflow: hidden;">
+                                <!-- Deadline Marker -->
+                                <div style="position: absolute; left: ${position}%; top: 0; bottom: 0; width: 3px; background: ${barColor}; z-index: 2;"></div>
+                                <div style="position: absolute; left: ${position}%; top: -5px; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid ${barColor}; transform: translateX(-50%); z-index: 3;"></div>
+                                
+                                <!-- Time Progress (from now to deadline) -->
+                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${position}%; background: linear-gradient(90deg, ${barColor}40, ${barColor}80); border-radius: 8px;"></div>
+                                
+                                <!-- Label -->
+                                <div style="position: absolute; left: ${position}%; top: 50%; transform: translate(-50%, -50%); z-index: 4; white-space: nowrap;">
+                                    <span class="badge" style="background: ${barColor}; font-size: 0.75rem;">
+                                        📅 Day ${currentDay + item.daysLeft}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+    }).join('')}
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-3 p-2 bg-white rounded border">
+                <small class="text-muted fw-bold">Legend:</small>
+                <div class="d-flex gap-3 mt-2 flex-wrap">
+                    <div><span class="badge bg-danger">Critical</span> <small>< 3 days</small></div>
+                    <div><span class="badge bg-warning text-dark">High</span> <small>3-7 days</small></div>
+                    <div><span class="badge bg-info">Medium</span> <small>7-14 days</small></div>
+                    <div><small>📅 Triangle = Deadline | 🔵 Shaded area = Time remaining</small></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return ganttHTML;
 }
 
 // 💡 2. ACTIONABLE RECOMMENDATIONS
@@ -1109,61 +1249,62 @@ function generateAdaptiveRecommendations(data) {
 function renderMainDashboard() {
     const data = window.studentData;
 
+    if (!data || !data.scores || data.scores.length === 0) {
+        console.error('No data available');
+        return;
+    }
+
     // Card 1: Overall Average
     const avgScore = data.scores.reduce((sum, s) => sum + Number(s.score), 0) / data.scores.length;
-    document.getElementById('overallGPA').textContent = avgScore.toFixed(1) + '%';
-
+    const overallGPA = document.getElementById('overallGPA');
     const statusBadge = document.getElementById('overallStatus');
-    if (avgScore >= 80) {
-        statusBadge.textContent = '🟢 Distinction';
-        statusBadge.className = 'badge bg-success';
-    } else if (avgScore >= 60) {
-        statusBadge.textContent = '🟢 Merit';
-        statusBadge.className = 'badge bg-success';
-    } else if (avgScore >= 40) {
-        statusBadge.textContent = '🟢 Pass';
-        statusBadge.className = 'badge bg-success';
-    } else {
-        statusBadge.textContent = '🔴 At Risk';
-        statusBadge.className = 'badge bg-danger';
+
+    if (overallGPA) {
+        overallGPA.textContent = avgScore.toFixed(1) + '%';
     }
 
-    // Card 2: Urgent Actions
-    const urgentDeadlines = data.assessments.filter(a =>
-        a.date > data.currentDay && (a.date - data.currentDay) < 7
-    );
-    document.getElementById('urgentCount').textContent = urgentDeadlines.length;
-
-    // Card 3: At-Risk Modules
-    const moduleScores = {};
-    data.scores.forEach(s => {
-        if (!moduleScores[s.code_module]) moduleScores[s.code_module] = [];
-        moduleScores[s.code_module].push(Number(s.score));
-    });
-
-    const atRiskModules = Object.entries(moduleScores).filter(([mod, scores]) => {
-        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-        return avg < 40;
-    });
-    document.getElementById('atRiskCount').textContent = atRiskModules.length;
-
-    // Card 4: Study Streak
-    if (data.activity && data.activity.length > 0) {
-        const streak = calculateStreak(data.activity);
-        document.getElementById('streakCount').textContent = streak.current;
-
-        const streakBadge = document.getElementById('streakBadge');
-        if (streak.current >= 7) {
-            streakBadge.textContent = '🔥🔥🔥 Amazing!';
-            streakBadge.className = 'badge bg-success';
-        } else if (streak.current >= 3) {
-            streakBadge.textContent = '🔥 Good!';
-            streakBadge.className = 'badge bg-info';
+    if (statusBadge) {
+        if (avgScore >= 80) {
+            statusBadge.textContent = '🟢 Distinction';
+            statusBadge.className = 'badge bg-success';
+        } else if (avgScore >= 60) {
+            statusBadge.textContent = '🟢 Merit';
+            statusBadge.className = 'badge bg-success';
+        } else if (avgScore >= 40) {
+            statusBadge.textContent = '🟢 Pass';
+            statusBadge.className = 'badge bg-success';
         } else {
-            streakBadge.textContent = '💤 Build it!';
-            streakBadge.className = 'badge bg-warning';
+            statusBadge.textContent = '🔴 At Risk';
+            statusBadge.className = 'badge bg-danger';
         }
     }
+
+    // ✅ Card 2: Urgent Actions - SIMPLE SUMMARY ONLY
+    const currentDay = data.currentDay || 0;
+    const urgentDeadlines = data.assessments.filter(a =>
+        a.date > currentDay && (a.date - currentDay) < 14 // Show 14 days
+    );
+
+    const urgentCount = document.getElementById('urgentCount');
+    const urgentLabel = document.getElementById('urgentLabel');
+
+    if (urgentCount) {
+        urgentCount.textContent = urgentDeadlines.length;
+    }
+
+    if (urgentLabel) {
+        const criticalCount = urgentDeadlines.filter(a => (a.date - currentDay) < 3).length;
+        if (criticalCount > 0) {
+            urgentLabel.textContent = `${criticalCount} Critical!`;
+            urgentLabel.className = 'badge bg-danger mb-3';
+        } else {
+            urgentLabel.textContent = '< 14 days';
+            urgentLabel.className = 'badge bg-warning text-dark mb-3';
+        }
+    }
+
+    // ✅ Render the course overview
+    renderCourseOverview();
 }
 function calculateStreak(activity) {
     if (!activity || activity.length === 0) return { current: 0, max: 0 };
@@ -1368,6 +1509,79 @@ function renderPerformanceTrendChart(moduleScores) {
     });
 }
 
+function selectModule(moduleData) {
+    currentModule = moduleData;
+    showModuleDetail(moduleData);
+}
+
+// Card 2: Show All Deadlines
+function showAllDeadlines() {
+    alert('Deadlines page - Coming in Part 5!');
+    // We'll implement this in Part 5
+}
+
+// ============================================
+// GENERATE QUESTION ANALYSIS (Pass/Fail)
+// ============================================
+function generateQuestionAnalysis(overallScore) {
+    // Generate 10-15 questions based on score
+    const totalQuestions = Math.floor(Math.random() * 6) + 10; // 10-15 questions
+    const correctCount = Math.round((overallScore / 100) * totalQuestions);
+    const incorrectCount = totalQuestions - correctCount;
+
+    const topics = [
+        'Basic Concepts',
+        'Advanced Theory',
+        'Practical Application',
+        'Problem Solving',
+        'Critical Analysis',
+        'Data Interpretation'
+    ];
+
+    const questions = [];
+
+    // Generate correct answers
+    for (let i = 0; i < correctCount; i++) {
+        questions.push({
+            number: i + 1,
+            title: `Question ${i + 1}`,
+            topic: topics[Math.floor(Math.random() * topics.length)],
+            correct: true,
+            userAnswer: 'Option C',
+            correctAnswer: 'Option C',
+            hint: ''
+        });
+    }
+
+    // Generate incorrect answers
+    for (let i = correctCount; i < totalQuestions; i++) {
+        const wrongOptions = ['A', 'B', 'D'];
+        const correctOption = 'C';
+        questions.push({
+            number: i + 1,
+            title: `Question ${i + 1}`,
+            topic: topics[Math.floor(Math.random() * topics.length)],
+            correct: false,
+            userAnswer: `Option ${wrongOptions[Math.floor(Math.random() * wrongOptions.length)]}`,
+            correctAnswer: `Option ${correctOption}`,
+            hint: 'Review the lecture notes and practice similar problems to improve understanding.'
+        });
+    }
+
+    // Shuffle questions to mix correct/incorrect
+    questions.sort(() => Math.random() - 0.5);
+
+    return {
+        total: totalQuestions,
+        correct: correctCount,
+        incorrect: incorrectCount,
+        questions: questions
+    };
+}
+
+// ============================================
+// SHOW ASSESSMENT DETAIL FROM CHART CLICK
+// ============================================
 function showAssessmentDetailFromChart(clickedData) {
     // Store the module context
     currentModule = {
@@ -1386,17 +1600,6 @@ function showAssessmentDetailFromChart(clickedData) {
 
     // Show assessment detail page
     showAssessmentDetail(clickedData.assessmentData, assessmentNumber);
-}
-
-function selectModule(moduleData) {
-    currentModule = moduleData;
-    showModuleDetail(moduleData);
-}
-
-// Card 2: Show All Deadlines
-function showAllDeadlines() {
-    alert('Deadlines page - Coming in Part 5!');
-    // We'll implement this in Part 5
 }
 
 // ============================================
@@ -2223,9 +2426,6 @@ You are ${comparison} average!
 ${clickCount < avgClicks ? '💡 Tip: Try to increase engagement by accessing more course materials.' : '✅ Great job staying engaged!'}`);
 }
 
-// ============================================
-// PAGE 4: ASSESSMENT DETAIL
-// ============================================
 function showAssessmentDetail(assessment, number) {
     currentAssessment = { ...assessment, number };
 
@@ -2238,8 +2438,8 @@ function showAssessmentDetail(assessment, number) {
     document.getElementById('assessmentDetailTitle').textContent =
         `Assessment ${number} - ${assessment.code_module}`;
 
-    // Generate topic breakdown (simulated data)
-    const topics = generateTopicBreakdown(assessment.score);
+    // ✅ Generate question breakdown (pass/fail analysis)
+    const questionAnalysis = generateQuestionAnalysis(assessment.score);
 
     const content = `
         <div class="row mb-4">
@@ -2273,26 +2473,106 @@ function showAssessmentDetail(assessment, number) {
             </div>
         </div>
 
-        <div class="alert alert-info border-start border-5 border-info">
-            <h5 class="mb-2"><i class="bi bi-info-circle me-2"></i>📝 What Happened?</h5>
-            <ul class="mb-0">
-                <li><strong>Submission:</strong> ${assessment.is_banked === 1 ? 'On time ✅' : 'Completed ✅'}</li>
-                <li><strong>Estimated Time Spent:</strong> ${assessment.score >= 70 ? '45-60 minutes' : '15-30 minutes'} 
-                    <small class="text-muted">(Class avg: 45 min)</small>
-                </li>
-                <li><strong>VLE Materials Accessed:</strong> ${assessment.score >= 70 ? '8/10 resources' : '2/10 resources'}</li>
-            </ul>
+        <!-- ✅ NEW: QUESTION PASS/FAIL SUMMARY -->
+        <div class="card mb-4 bg-light border-0">
+            <div class="card-body">
+                <h5 class="mb-3">
+                    <i class="bi bi-list-check me-2"></i>
+                    📝 Question Analysis
+                </h5>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <h2 class="mb-0 text-primary">${questionAnalysis.total}</h2>
+                            <small class="text-muted">Total Questions</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <h2 class="mb-0 text-success">${questionAnalysis.correct}</h2>
+                            <small class="text-muted">✅ Correct</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <h2 class="mb-0 text-danger">${questionAnalysis.incorrect}</h2>
+                            <small class="text-muted">❌ Incorrect</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress mb-3" style="height: 30px;">
+                    <div class="progress-bar bg-success" style="width: ${(questionAnalysis.correct / questionAnalysis.total) * 100}%">
+                        ${questionAnalysis.correct} Correct
+                    </div>
+                    <div class="progress-bar bg-danger" style="width: ${(questionAnalysis.incorrect / questionAnalysis.total) * 100}%">
+                        ${questionAnalysis.incorrect} Wrong
+                    </div>
+                </div>
+
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Performance:</strong> You answered ${((questionAnalysis.correct / questionAnalysis.total) * 100).toFixed(0)}% of questions correctly
+                </div>
+            </div>
         </div>
 
-        <h4 class="mb-3 mt-4">🎯 Topic Breakdown</h4>
-        <p class="text-muted mb-3">Click on any bar to see detailed question analysis</p>
-        
-        <div class="chart-container mb-4">
-            <canvas id="topicBreakdownChart"></canvas>
+        <!-- ✅ DETAILED QUESTION BREAKDOWN (Click to expand) -->
+        <h5 class="mb-3">
+            <i class="bi bi-clipboard-data me-2"></i>
+            🔍 Question-by-Question Breakdown
+        </h5>
+        <p class="text-muted mb-3">Click on any question to see details</p>
+
+        <div class="accordion" id="questionsAccordion">
+            ${questionAnalysis.questions.map((q, index) => {
+        const bgClass = q.correct ? 'bg-success' : 'bg-danger';
+        const icon = q.correct ? 'check-circle-fill' : 'x-circle-fill';
+
+        return `
+                    <div class="accordion-item mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed ${q.correct ? '' : 'text-danger'}" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#question${index}">
+                                <span class="badge ${bgClass} me-3">Q${index + 1}</span>
+                                <i class="bi bi-${icon} me-2"></i>
+                                <strong>${q.title}</strong>
+                                <span class="ms-auto me-3 badge ${bgClass}">${q.correct ? '✅ Correct' : '❌ Wrong'}</span>
+                            </button>
+                        </h2>
+                        <div id="question${index}" class="accordion-collapse collapse" data-bs-parent="#questionsAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <p class="mb-2"><strong>Your Answer:</strong> ${q.userAnswer}</p>
+                                        ${!q.correct ? `<p class="mb-2 text-success"><strong>Correct Answer:</strong> ${q.correctAnswer}</p>` : ''}
+                                        <p class="mb-2"><strong>Topic:</strong> ${q.topic}</p>
+                                        ${!q.correct ? `
+                                            <div class="alert alert-warning mt-3">
+                                                <strong>💡 Tip:</strong> ${q.hint}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card ${q.correct ? 'bg-success' : 'bg-danger'} text-white">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-${icon}" style="font-size: 3rem;"></i>
+                                                <h5 class="mt-2">${q.correct ? 'Correct!' : 'Incorrect'}</h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+    }).join('')}
         </div>
 
-        <div id="topicDetailSection"></div>
-
+        <!-- KEEP: How to Improve Section -->
         <h4 class="mb-3 mt-5">💡 How to Improve</h4>
         <div class="row g-3">
             <div class="col-md-4">
@@ -2324,6 +2604,7 @@ function showAssessmentDetail(assessment, number) {
             </div>
         </div>
 
+        <!-- KEEP: Grade Impact Calculator -->
         <div class="mt-4">
             <h4 class="mb-3">🧮 Grade Impact Calculator</h4>
             <div class="card bg-light">
@@ -2345,9 +2626,6 @@ function showAssessmentDetail(assessment, number) {
 
     document.getElementById('assessmentDetailContent').innerHTML = content;
 
-    // Render topic breakdown chart
-    renderTopicBreakdownChart(topics, assessment);
-
     // Initialize retake calculator
     updateRetakeCalculation();
 
@@ -2362,7 +2640,7 @@ function navigateToModuleDetail() {
 }
 
 // Generate simulated topic breakdown based on score
-function generateTopicBreakdown(overallScore) {
+/*function generateTopicBreakdown(overallScore) {
     const topics = [
         'Basic Concepts',
         'Advanced Theory',
@@ -2380,12 +2658,12 @@ function generateTopicBreakdown(overallScore) {
             questions: Math.floor(Math.random() * 5) + 5 // 5-10 questions
         };
     });
-}
+} */
 
 // ============================================
 // TOPIC BREAKDOWN CHART (Clickable Bars)
 // ============================================
-let topicBreakdownChartInstance = null;
+//let topicBreakdownChartInstance = null;
 
 function renderTopicBreakdownChart(topics, assessment) {
     if (topicBreakdownChartInstance) {
@@ -2466,7 +2744,7 @@ function renderTopicBreakdownChart(topics, assessment) {
     });
 }
 
-function showTopicDetail(topic) {
+/*function showTopicDetail(topic) {
     const detailSection = document.getElementById('topicDetailSection');
 
     const status = topic.score >= 60 ? 'success' : topic.score >= 40 ? 'warning' : 'danger';
@@ -2511,6 +2789,496 @@ function showTopicDetail(topic) {
 
     // Scroll to show the detail
     detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+} */
+
+// ============================================
+// GENERATE QUESTION ANALYSIS (Pass/Fail)
+// ============================================
+function generateQuestionAnalysis(overallScore) {
+    // Generate 10-15 questions based on score
+    const totalQuestions = Math.floor(Math.random() * 6) + 10; // 10-15 questions
+    const correctCount = Math.round((overallScore / 100) * totalQuestions);
+    const incorrectCount = totalQuestions - correctCount;
+
+    const topics = [
+        'Basic Concepts',
+        'Advanced Theory',
+        'Practical Application',
+        'Problem Solving',
+        'Critical Analysis',
+        'Data Interpretation'
+    ];
+
+    const questions = [];
+
+    // Generate correct answers
+    for (let i = 0; i < correctCount; i++) {
+        questions.push({
+            number: i + 1,
+            title: `Question ${i + 1}`,
+            topic: topics[Math.floor(Math.random() * topics.length)],
+            correct: true,
+            userAnswer: 'Option C',
+            correctAnswer: 'Option C',
+            hint: ''
+        });
+    }
+
+    // Generate incorrect answers
+    for (let i = correctCount; i < totalQuestions; i++) {
+        const wrongOptions = ['A', 'B', 'D'];
+        const correctOption = 'C';
+        questions.push({
+            number: i + 1,
+            title: `Question ${i + 1}`,
+            topic: topics[Math.floor(Math.random() * topics.length)],
+            correct: false,
+            userAnswer: `Option ${wrongOptions[Math.floor(Math.random() * wrongOptions.length)]}`,
+            correctAnswer: `Option ${correctOption}`,
+            hint: 'Review the lecture notes and practice similar problems to improve understanding.'
+        });
+    }
+
+    // Shuffle questions to mix correct/incorrect
+    questions.sort(() => Math.random() - 0.5);
+
+    return {
+        total: totalQuestions,
+        correct: correctCount,
+        incorrect: incorrectCount,
+        questions: questions
+    };
+}
+
+// ============================================
+// SHOW COURSE COMPARISON PAGE
+// ============================================
+function showCourseComparison() {
+    const data = window.studentData;
+    const container = document.getElementById('courseComparisonContent');
+
+    if (!container) return;
+
+    // Group scores by module
+    const moduleStats = {};
+    data.scores.forEach(s => {
+        const module = s.code_module;
+        if (!moduleStats[module]) {
+            moduleStats[module] = {
+                code: module,
+                presentation: s.code_presentation,
+                scores: [],
+                totalAssessments: 0,
+                passedAssessments: 0,
+                failedAssessments: 0
+            };
+        }
+
+        const score = Number(s.score);
+        moduleStats[module].scores.push(score);
+        moduleStats[module].totalAssessments++;
+
+        if (score >= 40) {
+            moduleStats[module].passedAssessments++;
+        } else {
+            moduleStats[module].failedAssessments++;
+        }
+    });
+
+    // Calculate statistics for each module
+    Object.values(moduleStats).forEach(mod => {
+        mod.average = mod.scores.reduce((a, b) => a + b, 0) / mod.scores.length;
+        mod.highest = Math.max(...mod.scores);
+        mod.lowest = Math.min(...mod.scores);
+        mod.passRate = (mod.passedAssessments / mod.totalAssessments) * 100;
+
+        // Simulate VLE engagement (clicks)
+        mod.vleClicks = Math.floor(Math.random() * 200) + 100; // 100-300 clicks
+
+        // Determine performance level
+        if (mod.average >= 80) {
+            mod.performance = 'excellent';
+            mod.status = 'Distinction';
+            mod.color = '#198754';
+        } else if (mod.average >= 60) {
+            mod.performance = 'good';
+            mod.status = 'Merit';
+            mod.color = '#0dcaf0';
+        } else if (mod.average >= 40) {
+            mod.performance = 'warning';
+            mod.status = 'Pass';
+            mod.color = '#ffc107';
+        } else {
+            mod.performance = 'danger';
+            mod.status = 'At Risk';
+            mod.color = '#dc3545';
+        }
+    });
+
+    const modules = Object.values(moduleStats);
+
+    if (modules.length < 2) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-info-circle me-2"></i>
+                You need at least 2 modules enrolled to compare. Currently enrolled: ${modules.length}
+            </div>
+        `;
+        navigateTo('page-course-comparison');
+        return;
+    }
+
+    const html = `
+        <!-- Comparison Summary Cards -->
+        <div class="row g-4 mb-4">
+            ${modules.map((mod, index) => `
+                <div class="col-md-${12 / modules.length}">
+                    <div class="card h-100 border-3" style="border-color: ${mod.color} !important;">
+                        <div class="card-header text-white" style="background-color: ${mod.color};">
+                            <h5 class="mb-0">${mod.code}</h5>
+                            <small>${mod.presentation}</small>
+                        </div>
+                        <div class="card-body text-center">
+                            <h1 class="display-3 mb-2" style="color: ${mod.color};">${mod.average.toFixed(1)}%</h1>
+                            <span class="badge mb-3" style="background-color: ${mod.color};">${mod.status}</span>
+                            
+                            <hr>
+                            
+                            <div class="text-start">
+                                <p class="mb-2">
+                                    <i class="bi bi-clipboard-check me-2 text-primary"></i>
+                                    <strong>Assessments:</strong> ${mod.totalAssessments}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-check-circle me-2 text-success"></i>
+                                    <strong>Passed:</strong> ${mod.passedAssessments}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-x-circle me-2 text-danger"></i>
+                                    <strong>Failed:</strong> ${mod.failedAssessments}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="bi bi-percent me-2 text-info"></i>
+                                    <strong>Pass Rate:</strong> ${mod.passRate.toFixed(0)}%
+                                </p>
+                                <p class="mb-0">
+                                    <i class="bi bi-mouse me-2 text-warning"></i>
+                                    <strong>VLE Clicks:</strong> ${mod.vleClicks}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+
+        <!-- Detailed Comparison Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-table me-2"></i>
+                    📋 Detailed Comparison
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Metric</th>
+                                ${modules.map(mod => `<th class="text-center">${mod.code}</th>`).join('')}
+                                <th class="text-center">Winner</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Average Score -->
+                            <tr>
+                                <td><strong>Average Score</strong></td>
+                                ${modules.map(mod => {
+        const isBest = mod.average === Math.max(...modules.map(m => m.average));
+        return `<td class="text-center ${isBest ? 'table-success' : ''}">
+                                        <strong>${mod.average.toFixed(1)}%</strong>
+                                        ${isBest ? '<i class="bi bi-trophy-fill text-warning ms-2"></i>' : ''}
+                                    </td>`;
+    }).join('')}
+                                <td class="text-center">
+                                    <span class="badge bg-success">
+                                        ${modules.reduce((best, mod) => mod.average > best.average ? mod : best).code}
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <!-- Total Assessments -->
+                            <tr>
+                                <td><strong>Total Assessments</strong></td>
+                                ${modules.map(mod => `<td class="text-center">${mod.totalAssessments}</td>`).join('')}
+                                <td class="text-center">-</td>
+                            </tr>
+                            
+                            <!-- Pass Rate -->
+                            <tr>
+                                <td><strong>Pass Rate</strong></td>
+                                ${modules.map(mod => {
+        const isBest = mod.passRate === Math.max(...modules.map(m => m.passRate));
+        return `<td class="text-center ${isBest ? 'table-success' : ''}">
+                                        <strong>${mod.passRate.toFixed(0)}%</strong>
+                                        ${isBest ? '<i class="bi bi-trophy-fill text-warning ms-2"></i>' : ''}
+                                    </td>`;
+    }).join('')}
+                                <td class="text-center">
+                                    <span class="badge bg-success">
+                                        ${modules.reduce((best, mod) => mod.passRate > best.passRate ? mod : best).code}
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <!-- Highest Score -->
+                            <tr>
+                                <td><strong>Highest Score</strong></td>
+                                ${modules.map(mod => `<td class="text-center">${mod.highest}%</td>`).join('')}
+                                <td class="text-center">
+                                    <span class="badge bg-info">
+                                        ${modules.reduce((best, mod) => mod.highest > best.highest ? mod : best).code}
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <!-- Lowest Score -->
+                            <tr>
+                                <td><strong>Lowest Score</strong></td>
+                                ${modules.map(mod => `<td class="text-center">${mod.lowest}%</td>`).join('')}
+                                <td class="text-center">-</td>
+                            </tr>
+                            
+                            <!-- VLE Engagement -->
+                            <tr>
+                                <td><strong>VLE Clicks</strong></td>
+                                ${modules.map(mod => {
+        const isBest = mod.vleClicks === Math.max(...modules.map(m => m.vleClicks));
+        return `<td class="text-center ${isBest ? 'table-success' : ''}">
+                                        <strong>${mod.vleClicks}</strong>
+                                        ${isBest ? '<i class="bi bi-trophy-fill text-warning ms-2"></i>' : ''}
+                                    </td>`;
+    }).join('')}
+                                <td class="text-center">
+                                    <span class="badge bg-success">
+                                        ${modules.reduce((best, mod) => mod.vleClicks > best.vleClicks ? mod : best).code}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visual Comparison Charts -->
+        <div class="row g-4 mb-4">
+            <!-- Chart 1: Average Score Comparison -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0">📊 Average Score Comparison</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="comparisonAverageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart 2: Pass Rate Comparison -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0">✅ Pass Rate Comparison</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="comparisonPassRateChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart 3: VLE Engagement Comparison -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">🖱️ VLE Engagement Comparison</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="comparisonEngagementChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Insights & Recommendations -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb-fill me-2"></i>
+                    💡 Insights & Recommendations
+                </h5>
+            </div>
+            <div class="card-body">
+                ${generateComparisonInsights(modules)}
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Render comparison charts
+    renderComparisonCharts(modules);
+
+    navigateTo('page-course-comparison');
+}
+
+// ============================================
+// RENDER COMPARISON CHARTS
+// ============================================
+function renderComparisonCharts(modules) {
+    // Chart 1: Average Score Bar Chart
+    const avgCtx = document.getElementById('comparisonAverageChart');
+    if (avgCtx) {
+        new Chart(avgCtx, {
+            type: 'bar',
+            data: {
+                labels: modules.map(m => m.code),
+                datasets: [{
+                    label: 'Average Score (%)',
+                    data: modules.map(m => m.average),
+                    backgroundColor: modules.map(m => m.color + '80'),
+                    borderColor: modules.map(m => m.color),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: (value) => value + '%'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Pass Rate Bar Chart
+    const passCtx = document.getElementById('comparisonPassRateChart');
+    if (passCtx) {
+        new Chart(passCtx, {
+            type: 'bar',
+            data: {
+                labels: modules.map(m => m.code),
+                datasets: [{
+                    label: 'Pass Rate (%)',
+                    data: modules.map(m => m.passRate),
+                    backgroundColor: modules.map(m => m.color + '80'),
+                    borderColor: modules.map(m => m.color),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: (value) => value + '%'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Chart 3: VLE Engagement Horizontal Bar
+    const engageCtx = document.getElementById('comparisonEngagementChart');
+    if (engageCtx) {
+        new Chart(engageCtx, {
+            type: 'bar',  // ✅ Use 'bar' with indexAxis: 'y'
+            data: {
+                labels: modules.map(m => m.code),
+                datasets: [{
+                    label: 'VLE Clicks',
+                    data: modules.map(m => m.vleClicks),
+                    backgroundColor: modules.map(m => m.color + '80'),
+                    borderColor: modules.map(m => m.color),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',  // ✅ This makes it horizontal
+                scales: {
+                    x: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+}
+
+// ============================================
+// GENERATE COMPARISON INSIGHTS
+// ============================================
+function generateComparisonInsights(modules) {
+    const insights = [];
+
+    const best = modules.reduce((best, mod) => mod.average > best.average ? mod : best);
+    const worst = modules.reduce((worst, mod) => mod.average < worst.average ? mod : worst);
+
+    insights.push(`
+        <div class="alert alert-success">
+            <i class="bi bi-trophy-fill me-2"></i>
+            <strong>Best Performing:</strong> ${best.code} with ${best.average.toFixed(1)}% average. Keep up the excellent work!
+        </div>
+    `);
+
+    if (worst.average < 40) {
+        insights.push(`
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Needs Attention:</strong> ${worst.code} is below passing grade (${worst.average.toFixed(1)}%). 
+                Consider booking tutoring support or reviewing lecture materials.
+            </div>
+        `);
+    } else if (worst.average < 60) {
+        insights.push(`
+            <div class="alert alert-warning">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Room for Improvement:</strong> ${worst.code} could be improved (${worst.average.toFixed(1)}%). 
+                Focus on practice problems and seek help if needed.
+            </div>
+        `);
+    }
+
+    const mostEngaged = modules.reduce((best, mod) => mod.vleClicks > best.vleClicks ? mod : best);
+    insights.push(`
+        <div class="alert alert-info">
+            <i class="bi bi-mouse-fill me-2"></i>
+            <strong>Most Engaged:</strong> You're most active in ${mostEngaged.code} with ${mostEngaged.vleClicks} VLE clicks. 
+            Engagement often correlates with better performance!
+        </div>
+    `);
+
+    return insights.join('');
 }
 
 // ============================================
@@ -2817,6 +3585,313 @@ function updatePrepCalculation(moduleCode, currentAvg, assessmentCount) {
             </div>
         </div>
     `;
+}
+
+// ============================================
+// RENDER COURSE OVERVIEW WITH COMPARISON
+// ============================================
+function renderCourseOverview() {
+    const data = window.studentData;
+    const container = document.getElementById('courseOverviewContent');
+
+    if (!container || !data.scores || data.scores.length === 0) {
+        if (container) {
+            container.innerHTML = '<p class="text-muted text-center p-4">No course data available</p>';
+        }
+        return;
+    }
+
+    // Group scores by module
+    const moduleStats = {};
+    data.scores.forEach(s => {
+        const module = s.code_module;
+        if (!moduleStats[module]) {
+            moduleStats[module] = {
+                code: module,
+                presentation: s.code_presentation,
+                scores: [],
+                totalAssessments: 0,
+                passedAssessments: 0,
+                failedAssessments: 0
+            };
+        }
+
+        const score = Number(s.score);
+        moduleStats[module].scores.push(score);
+        moduleStats[module].totalAssessments++;
+
+        if (score >= 40) {
+            moduleStats[module].passedAssessments++;
+        } else {
+            moduleStats[module].failedAssessments++;
+        }
+    });
+
+    // Calculate averages and determine status
+    Object.values(moduleStats).forEach(mod => {
+        mod.average = mod.scores.reduce((a, b) => a + b, 0) / mod.scores.length;
+        mod.highest = Math.max(...mod.scores);
+        mod.lowest = Math.min(...mod.scores);
+
+        // Determine performance level
+        if (mod.average >= 80) {
+            mod.performance = 'excellent';
+            mod.status = 'Distinction';
+            mod.icon = '🏆';
+        } else if (mod.average >= 60) {
+            mod.performance = 'good';
+            mod.status = 'Merit';
+            mod.icon = '⭐';
+        } else if (mod.average >= 40) {
+            mod.performance = 'warning';
+            mod.status = 'Pass';
+            mod.icon = '✅';
+        } else {
+            mod.performance = 'danger';
+            mod.status = 'At Risk';
+            mod.icon = '⚠️';
+        }
+    });
+
+    const modules = Object.values(moduleStats);
+    const totalCourses = modules.length;
+    const goodCourses = modules.filter(m => m.average >= 60).length;
+
+    // Update badge
+    document.getElementById('totalCoursesBadge').textContent =
+        `${totalCourses} Course${totalCourses !== 1 ? 's' : ''}`;
+
+    // Render the overview
+    const html = `
+        <!-- Summary Stats -->
+        <div class="row g-0 border-bottom">
+            <div class="col-md-4 p-4 text-center border-end">
+                <div class="metric-value text-primary">${totalCourses}</div>
+                <small class="text-muted">Total Courses Enrolled</small>
+            </div>
+            <div class="col-md-4 p-4 text-center border-end">
+                <div class="metric-value text-success">${goodCourses}</div>
+                <small class="text-muted">Performing Well (≥60%)</small>
+            </div>
+            <div class="col-md-4 p-4 text-center">
+                <div class="metric-value text-info">${modules.reduce((sum, m) => sum + m.totalAssessments, 0)}</div>
+                <small class="text-muted">Total Assessments</small>
+            </div>
+        </div>
+
+        <!-- Course Cards -->
+        <div class="p-3">
+            ${modules.map(mod => `
+                <div class="course-card ${mod.performance} p-4 mb-3 rounded" 
+                     onclick='showCourseDetail("${mod.code}")'>
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3" style="font-size: 3rem;">${mod.icon}</div>
+                                <div>
+                                    <h5 class="mb-1">${mod.code}</h5>
+                                    <small class="text-muted">${mod.presentation}</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2 text-center">
+                            <div class="comparison-metric">
+                                <div class="metric-value text-${mod.performance}">
+                                    ${mod.average.toFixed(1)}%
+                                </div>
+                                <small class="text-muted d-block">Average</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2 text-center">
+                            <div class="comparison-metric">
+                                <div class="metric-value">${mod.totalAssessments}</div>
+                                <small class="text-muted d-block">Assessments</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2 text-center">
+                            <div class="comparison-metric">
+                                <div class="metric-value text-success">${mod.passedAssessments}</div>
+                                <small class="text-muted d-block">Passed</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 text-center">
+                            <span class="badge performance-badge bg-${mod.performance}">
+                                ${mod.status}
+                            </span>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    Range: ${mod.lowest}% - ${mod.highest}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-${mod.performance}" 
+                             style="width: ${mod.average}%"
+                             role="progressbar">
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+
+        ${totalCourses >= 2 ? `
+            <!-- Comparison Button -->
+            <div class="p-3 border-top bg-light text-center">
+                <button class="btn btn-primary" onclick="showCourseComparison()">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Compare All Courses →
+                </button>
+            </div>
+        ` : ''}
+    `;
+
+    container.innerHTML = html;
+}
+
+// ============================================
+// SHOW URGENT ACTIONS DETAIL PAGE (Drill-In)
+// ============================================
+function showUrgentActionsDetail() {
+    const data = window.studentData;
+    const container = document.getElementById('urgentActionsDetailContent');
+
+    if (!container) return;
+
+    const currentDay = data.currentDay || 0;
+    const urgentItems = [];
+
+    // Collect urgent deadlines (< 14 days)
+    if (data.assessments) {
+        const urgent = data.assessments
+            .filter(a => a.date > currentDay && (a.date - currentDay) < 14)
+            .sort((a, b) => a.date - b.date);
+
+        urgent.forEach(a => {
+            const daysLeft = a.date - currentDay;
+            const duration = a.assessment_type === 'Exam' ? 7 : 14;
+
+            urgentItems.push({
+                priority: daysLeft < 3 ? 'CRITICAL' : daysLeft < 7 ? 'HIGH' : 'MEDIUM',
+                color: daysLeft < 3 ? 'danger' : daysLeft < 7 ? 'warning' : 'info',
+                icon: 'clock-fill',
+                title: `${a.assessment_type} - ${a.code_module}`,
+                description: a.code_presentation,
+                daysLeft: daysLeft,
+                deadline: a.date,
+                duration: duration,
+                module: a.code_module,
+                type: a.assessment_type
+            });
+        });
+    }
+
+    if (urgentItems.length === 0) {
+        container.innerHTML = `
+            <div class="p-5 text-center">
+                <i class="bi bi-check-circle text-success" style="font-size: 5rem;"></i>
+                <h3 class="mt-3">All Clear!</h3>
+                <p class="text-muted">No urgent deadlines in the next 14 days. Great job staying on track!</p>
+            </div>
+        `;
+        navigateTo('page-urgent-actions');
+        return;
+    }
+
+    // ✅ GANTT CHART FIRST, then list
+    const html = `
+        <!-- SECTION 1: GANTT CHART -->
+        <div class="p-4 bg-light border-bottom">
+            <h5 class="mb-3">
+                <i class="bi bi-calendar-range me-2"></i>
+                📊 Deadline Timeline (Gantt Chart)
+            </h5>
+            ${renderGanttChart(urgentItems, currentDay)}
+        </div>
+
+        <!-- SECTION 2: DETAILED LIST -->
+        <div class="p-4">
+            <h5 class="mb-3">
+                <i class="bi bi-list-task me-2"></i>
+                📋 Action Items (${urgentItems.length})
+            </h5>
+            ${urgentItems.map((item, index) => `
+                <div class="card mb-3 border-${item.color}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge bg-${item.color}">#${index + 1} ${item.priority}</span>
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-${item.icon} text-${item.color} me-2"></i>
+                                        ${item.title}
+                                    </h6>
+                                </div>
+                                
+                                <p class="text-muted mb-2 small">${item.description}</p>
+                                
+                                <div class="row g-2 mb-3">
+                                    <div class="col-auto">
+                                        <span class="badge bg-light text-dark">
+                                            <i class="bi bi-calendar-event me-1"></i>
+                                            <strong>${item.daysLeft} days left</strong>
+                                        </span>
+                                    </div>
+                                    <div class="col-auto">
+                                        <span class="badge bg-light text-dark">
+                                            <i class="bi bi-hourglass-split me-1"></i>
+                                            ${item.duration} days prep time
+                                        </span>
+                                    </div>
+                                    <div class="col-auto">
+                                        <span class="badge bg-light text-dark">
+                                            <i class="bi bi-calendar-check me-1"></i>
+                                            Due: Day ${item.deadline}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <button class="btn btn-sm btn-${item.color}" 
+                                        onclick='showDeadlinePrep(${JSON.stringify({
+        code_module: item.module,
+        assessment_type: item.type,
+        date: item.deadline,
+        code_presentation: item.description
+    })})'>
+                                    <i class="bi bi-arrow-right-circle me-1"></i>
+                                    Prepare Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    container.innerHTML = html;
+    navigateTo('page-urgent-actions');
+}
+
+// ============================================
+// SHOW INDIVIDUAL COURSE DETAIL
+// ============================================
+function showCourseDetail(moduleCode) {
+    const data = window.studentData;
+    const moduleData = {
+        code: moduleCode,
+        scores: data.scores.filter(s => s.code_module === moduleCode)
+    };
+
+    if (moduleData.scores.length > 0) {
+        showModuleDetail(moduleData);
+    }
 }
 
 // ============================================

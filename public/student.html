@@ -417,6 +417,52 @@
         .module-item.fail {
             border-left-color: var(--color-fail);
         }
+
+        /* Course Overview Styles */
+        .course-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 5px solid;
+            background: linear-gradient(to right, #f8f9fa, #ffffff);
+        }
+
+        .course-card:hover {
+            transform: translateX(8px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .course-card.excellent {
+            border-left-color: #198754;
+        }
+
+        .course-card.good {
+            border-left-color: #0dcaf0;
+        }
+
+        .course-card.warning {
+            border-left-color: #ffc107;
+        }
+
+        .course-card.danger {
+            border-left-color: #dc3545;
+        }
+
+        .comparison-metric {
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .performance-badge {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
     </style>
 </head>
 
@@ -512,13 +558,14 @@
         <!-- Dashboard Content Grid -->
         <div class="row g-4">
 
-        </div><!-- Main Content -->
+        </div>
+        <!-- Main Content -->
         <!-- PAGE 1: MAIN DASHBOARD -->
         <div id="page-main" class="page-container active">
             <!-- 4 Main Cards -->
             <div class="row g-4 mb-4">
                 <!-- Card 1: Overall Average -->
-                <div class="col-6 col-md-4">
+                <div class="col-md-6">
                     <div class="card stat-card" onclick="showModuleBreakdown()">
                         <div class="card-body text-center">
                             <div class="icon mb-3">📈</div>
@@ -531,41 +578,35 @@
                 </div>
 
                 <!-- Card 2: Urgent Actions -->
-                <div class="col-6 col-md-4">
-                    <div class="card stat-card" onclick="showAllDeadlines()">
+                <div class="col-md-6">
+                    <div class="card stat-card" onclick="showUrgentActionsDetail()">
                         <div class="card-body text-center">
                             <div class="icon mb-3">⚠️</div>
                             <h6 class="text-muted mb-2">Urgent Actions</h6>
                             <h2 class="display-4 mb-2" id="urgentCount">--</h2>
-                            <span class="badge bg-warning text-dark mb-3">
-                                < 7 days</span>
-                                    <button class="btn btn-warning w-100">View All →</button>
+                            <span class="badge bg-warning text-dark mb-3" id="urgentLabel">Loading...</span>
+                            <button class="btn btn-warning w-100">View Details →</button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Card 3: At-Risk Modules -->
-                <div class="col-6 col-md-4">
-                    <div class="card stat-card" onclick="showAtRiskModules()">
-                        <div class="card-body text-center">
-                            <div class="icon mb-3">❌</div>
-                            <h6 class="text-muted mb-2">At-Risk Modules</h6>
-                            <h2 class="display-4 mb-2" id="atRiskCount">--</h2>
-                            <span class="badge bg-danger mb-3">Below 40%</span>
-                            <button class="btn btn-danger w-100">See Details →</button>
+            <!-- NEW: Course Overview Section -->
+            <div class="row g-4 mb-4">
+                <div class="col-12">
+                    <div class="card shadow-lg">
+                        <div class="card-header bg-gradient text-white"
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-mortarboard-fill me-2"></i>
+                                    📚 Course Overview
+                                </h5>
+                                <span class="badge bg-white text-primary" id="totalCoursesBadge">0 Courses</span>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Card 4: Study Streak -->
-                <div class="col-6 col-md-4">
-                    <div class="card stat-card" onclick="showStudyStreak()">
-                        <div class="card-body text-center">
-                            <div class="icon mb-3">🔥</div>
-                            <h6 class="text-muted mb-2">Study Streak</h6>
-                            <h2 class="display-4 mb-2" id="streakCount">--</h2>
-                            <span class="badge bg-info mb-3" id="streakBadge">Loading...</span>
-                            <button class="btn btn-info w-100">View Pattern →</button>
+                        <div class="card-body p-0" id="courseOverviewContent">
+                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -657,7 +698,44 @@
             </div>
         </div>
 
-        <!-- Additional pages: deadlines, at-risk, streak, etc. -->
+        <!-- PAGE 5: URGENT ACTIONS DETAIL -->
+        <div id="page-urgent-actions" class="page-container">
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        🚨 Urgent Actions Required
+                    </h4>
+                    <p class="mb-0 small">Upcoming deadlines requiring immediate attention</p>
+                </div>
+                <div class="card-body p-0" id="urgentActionsDetailContent">
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 6: COURSE COMPARISON -->
+        <div id="page-course-comparison" class="page-container">
+            <button class="btn btn-light mb-3" onclick="navigateTo('page-main')">
+                <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+            </button>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-bar-chart-fill me-2"></i>
+                        📊 Course Comparison
+                    </h4>
+                    <p class="mb-0 small">Side-by-side analysis of your enrolled modules</p>
+                </div>
+                <div class="card-body" id="courseComparisonContent">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
 
     </div>
 
