@@ -64,6 +64,7 @@ function ensureMultipleModules(data) {
     if (!data.scores || data.scores.length === 0) return data;
 
     const modules = [...new Set(data.scores.map(s => s.code_module))];
+    const currentDay = data.currentDay || 50;
 
     // If only 1 module, duplicate it as a second module
     if (modules.length === 1) {
@@ -84,10 +85,18 @@ function ensureMultipleModules(data) {
         if (data.assessments) {
             const duplicatedAssessments = data.assessments
                 .filter(a => a.code_module === originalModule)
-                .map(a => ({
-                    ...a,
-                    code_module: newModule
-                }));
+                .slice(0, 2) // ✅ Only create 2 assessments for BBB
+                .map((a, index) => {
+                    // ✅ FORCE specific deadlines
+                    const daysUntilDeadline = index === 0 ? 2 : 5;
+
+                    return {
+                        ...a,
+                        code_module: newModule,
+                        date: currentDay + daysUntilDeadline,
+                        assessment_type: index === 1 ? 'Exam' : 'TMA' // ✅ Second one is Exam
+                    };
+                });
 
             data.assessments = [...data.assessments, ...duplicatedAssessments];
         }
@@ -776,42 +785,19 @@ function renderConsistencyTracker(activity) {
     container.innerHTML = html;
 }
 
-// 🚨 1. URGENT ACTIONS PANEL WITH GANTT CHART (DEADLINES ONLY)
+// 🚨 1. URGENT ACTIONS PANEL - SIMPLE CARD ON MAIN DASHBOARD
 function renderUrgentActionsPanel(data) {
     const container = document.getElementById("urgentActions");
     if (!container) return;
 
-    const urgentItems = [];
     const currentDay = data.currentDay || 0;
 
-    // ✅ ONLY Check for urgent deadlines (< 14 days for Gantt visibility)
-    if (data.assessments) {
-        const urgent = data.assessments
+    // ✅ Only check for urgent deadlines (< 14 days)
+    const urgentItems = data.assessments
+        ? data.assessments
             .filter(a => a.date > currentDay && (a.date - currentDay) < 14)
-            .sort((a, b) => a.date - b.date);
-
-        urgent.forEach(a => {
-            const daysLeft = a.date - currentDay;
-            const duration = a.assessment_type === 'Exam' ? 7 : 14; // Exam: 7 days, TMA: 14 days prep time
-
-            urgentItems.push({
-                priority: daysLeft < 3 ? 'CRITICAL' : daysLeft < 7 ? 'HIGH' : 'MEDIUM',
-                color: daysLeft < 3 ? 'danger' : daysLeft < 7 ? 'warning' : 'info',
-                icon: 'clock-fill',
-                title: `${a.assessment_type} - ${a.code_module}`,
-                description: `${a.code_presentation}`,
-                daysLeft: daysLeft,
-                deadline: a.date,
-                duration: duration,
-                module: a.code_module,
-                type: a.assessment_type,
-                action: 'Prepare Now',
-                actionLink: '#submissions'
-            });
-        });
-    }
-
-    // ❌ REMOVED: Failing modules section - they go in separate card
+            .sort((a, b) => a.date - b.date)
+        : [];
 
     if (urgentItems.length === 0) {
         container.innerHTML = `
@@ -823,59 +809,22 @@ function renderUrgentActionsPanel(data) {
         return;
     }
 
-    const html = `
-        <div class="card border-0 shadow-lg" style="border-left: 5px solid #dc3545;">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    🚨 Urgent Actions Required (${urgentItems.length} deadline${urgentItems.length !== 1 ? 's' : ''})
-                </h5>
-            </div>
-            <div class="card-body p-0">
-                <!-- Urgent Deadline Items List -->
-                ${urgentItems.map((item, index) => `
-                    <div class="p-3 border-bottom ${index === 0 ? 'bg-light' : ''}">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <span class="badge bg-${item.color} mb-2">${item.priority}</span>
-                                <h6 class="mb-1">
-                                    <i class="bi bi-${item.icon} text-${item.color} me-2"></i>
-                                    ${item.title}
-                                </h6>
-                                <p class="text-muted mb-2 small">${item.description}</p>
-                                <div class="mb-2">
-                                    <span class="badge bg-light text-dark">
-                                        <i class="bi bi-calendar-event me-1"></i>
-                                        <strong>${item.daysLeft} days left</strong>
-                                    </span>
-                                    <span class="badge bg-light text-dark ms-2">
-                                        <i class="bi bi-hourglass-split me-1"></i>
-                                        ${item.duration} days prep time
-                                    </span>
-                                </div>
-                                <button class="btn btn-sm btn-${item.color}" onclick='showDeadlinePrep(${JSON.stringify({ code_module: item.module, assessment_type: item.type, date: item.deadline, code_presentation: item.description })})'>
-                                    <i class="bi bi-arrow-right-circle me-1"></i>
-                                    ${item.action}
-                                </button>
-                            </div>
-                            <div class="text-center" style="min-width: 50px;">
-                                <div class="badge bg-${item.color} rounded-circle" 
-                                     style="width: 40px; height: 40px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">
-                                    ${index + 1}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
+    // ✅ SIMPLE card with just a summary - click to see full details
+    const criticalCount = urgentItems.filter(a => (a.date - currentDay) < 3).length;
 
-            <!-- Gantt Chart Timeline -->
-            <div class="card-footer bg-light">
-                <h6 class="mb-3">
-                    <i class="bi bi-calendar-range me-2"></i>
-                    📊 Deadline Timeline (Gantt Chart)
-                </h6>
-                ${renderGanttChart(urgentItems, currentDay)}
+    const html = `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="mb-1">🚨 ${urgentItems.length} Urgent Action${urgentItems.length !== 1 ? 's' : ''} Required</h5>
+                <p class="mb-2">
+                    ${criticalCount > 0 ? `<strong>${criticalCount} critical</strong> (< 3 days) | ` : ''}
+                    ${urgentItems.length - criticalCount} upcoming deadlines
+                </p>
+                <button class="btn btn-danger btn-sm" onclick="showUrgentActionsDetail()">
+                    <i class="bi bi-arrow-right-circle me-1"></i>
+                    View All Details →
+                </button>
             </div>
         </div>
     `;
@@ -883,42 +832,48 @@ function renderUrgentActionsPanel(data) {
     container.innerHTML = html;
 }
 
-
 // ============================================
 // RENDER GANTT CHART FOR DEADLINES
 // ============================================
 function renderGanttChart(deadlineItems, currentDay) {
     if (!deadlineItems || deadlineItems.length === 0) return '';
 
-    // Find the furthest deadline to scale the chart
-    const maxDays = Math.max(...deadlineItems.map(item => item.daysLeft));
+    // Calculate actual days left from adjusted dates
+    deadlineItems = deadlineItems.map(item => ({
+        ...item,
+        daysLeft: item.deadline - currentDay
+    }));
+
+    // Cap maxDays at 14 for better visualization
+    const maxDays = 14;
     const chartWidth = 100; // percentage
 
     const ganttHTML = `
         <div class="gantt-chart-container">
             <!-- Timeline Header -->
-            <div class="d-flex justify-content-between align-items-center mb-2 px-3">
-                <small class="text-muted fw-bold">
-                    <i class="bi bi-calendar-check me-1"></i>
-                    Today (Day ${currentDay})
-                </small>
-                <small class="text-muted fw-bold">
-                    <i class="bi bi-calendar-x me-1"></i>
-                    +${maxDays} days
-                </small>
+            <div class="d-flex justify-content-between align-items-center mb-3 px-3">
+                <div>
+                    <i class="bi bi-calendar-check me-2 text-success"></i>
+                    <strong>Today</strong> <small class="text-muted">(Day ${currentDay})</small>
+                </div>
+                <div>
+                    <i class="bi bi-calendar-x me-2 text-danger"></i>
+                    <strong>+${maxDays} days</strong>
+                </div>
             </div>
 
-            <!-- Time Scale -->
-            <div class="position-relative mb-3" style="height: 40px; background: linear-gradient(90deg, #e3f2fd 0%, #fff 100%); border-radius: 8px; border: 2px solid #90caf9;">
-                <div class="d-flex justify-content-between align-items-center h-100 px-2">
+            <!-- Time Scale with Grid Lines -->
+            <div class="position-relative mb-4" style="height: 60px; background: linear-gradient(90deg, #e8f5e9 0%, #fff3e0 50%, #ffebee 100%); border-radius: 10px; border: 2px solid #90caf9; padding: 15px;">
+                <div class="d-flex justify-content-between align-items-center h-100 position-relative">
                     ${Array.from({ length: 5 }, (_, i) => {
         const day = Math.round((maxDays / 4) * i);
+        const color = day <= 3 ? '#dc3545' : day <= 7 ? '#ffc107' : '#0dcaf0';
         return `
-                            <div class="text-center" style="position: relative;">
-                                <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 2px; height: 60px; background: #ccc;"></div>
-                                <small class="fw-bold text-primary" style="position: relative; z-index: 1; background: white; padding: 0 4px;">
-                                    ${i === 0 ? 'Now' : `+${day}d`}
-                                </small>
+                            <div class="text-center position-relative">
+                                <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 2px; height: 80px; background: ${i === 0 ? '#198754' : '#dee2e6'}; opacity: 0.5;"></div>
+                                <span class="badge" style="background: ${i === 0 ? '#198754' : color}; position: relative; z-index: 2; font-size: 0.85rem; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                    ${i === 0 ? '🟢 Now' : `+${day}d`}
+                                </span>
                             </div>
                         `;
     }).join('')}
@@ -928,34 +883,77 @@ function renderGanttChart(deadlineItems, currentDay) {
             <!-- Gantt Bars -->
             <div class="gantt-bars">
                 ${deadlineItems.map((item, index) => {
-        const position = (item.daysLeft / maxDays) * chartWidth;
-        const barColor = item.color === 'danger' ? '#dc3545' : item.color === 'warning' ? '#ffc107' : '#0dcaf0';
+        // Calculate position based on maxDays scale, cap at 100%
+        const position = Math.min((item.daysLeft / maxDays) * 100, 100);
+
+        // Determine color and styling based on urgency
+        let barColor, barBgGradient, priorityIcon;
+        if (item.daysLeft < 3) {
+            barColor = '#dc3545';
+            barBgGradient = 'linear-gradient(90deg, rgba(220,53,69,0.15), rgba(220,53,69,0.4))';
+            priorityIcon = '🔴';
+        } else if (item.daysLeft < 7) {
+            barColor = '#ffc107';
+            barBgGradient = 'linear-gradient(90deg, rgba(255,193,7,0.15), rgba(255,193,7,0.4))';
+            priorityIcon = '🟡';
+        } else {
+            barColor = '#0dcaf0';
+            barBgGradient = 'linear-gradient(90deg, rgba(13,202,240,0.15), rgba(13,202,240,0.4))';
+            priorityIcon = '🔵';
+        }
 
         return `
-                        <div class="gantt-bar-row mb-3 p-2 rounded" style="background: #f8f9fa; position: relative;">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div>
-                                    <strong>${item.title}</strong>
-                                    <span class="badge bg-${item.color} ms-2">${item.daysLeft}d left</span>
+                        <div class="gantt-bar-row mb-3 p-3 rounded shadow-sm" style="background: white; border-left: 5px solid ${barColor}; transition: all 0.3s ease;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span style="font-size: 1.2rem;">${priorityIcon}</span>
+                                        <strong class="text-dark">${item.title}</strong>
+                                        <span class="badge bg-${item.color}" style="font-size: 0.75rem; padding: 0.35rem 0.6rem;">
+                                            ${item.daysLeft} day${item.daysLeft !== 1 ? 's' : ''} left
+                                        </span>
+                                    </div>
+                                    <small class="text-muted ms-4">${item.description}</small>
                                 </div>
-                                <small class="text-muted">Duration: ${item.duration} days</small>
+                                <div class="text-end">
+                                    <small class="text-muted d-block">
+                                        <i class="bi bi-hourglass-split me-1"></i>
+                                        ${item.duration}d prep time
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar-event me-1"></i>
+                                        Due: Day ${item.date}
+                                    </small>
+                                </div>
                             </div>
                             
-                            <!-- Progress Bar -->
-                            <div class="position-relative" style="height: 30px; background: #e9ecef; border-radius: 8px; overflow: hidden;">
-                                <!-- Deadline Marker -->
-                                <div style="position: absolute; left: ${position}%; top: 0; bottom: 0; width: 3px; background: ${barColor}; z-index: 2;"></div>
-                                <div style="position: absolute; left: ${position}%; top: -5px; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid ${barColor}; transform: translateX(-50%); z-index: 3;"></div>
+                            <!-- Progress Bar with Improved Visualization -->
+                            <div class="position-relative" style="height: 40px; background: #f8f9fa; border-radius: 12px; overflow: visible; border: 1px solid #e9ecef;">
+                                <!-- Time Progress Shaded Area -->
+                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${position}%; background: ${barBgGradient}; border-radius: 11px; transition: width 0.3s ease;"></div>
                                 
-                                <!-- Time Progress (from now to deadline) -->
-                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${position}%; background: linear-gradient(90deg, ${barColor}40, ${barColor}80); border-radius: 8px;"></div>
+                                <!-- Deadline Marker Triangle (Larger & More Visible) -->
+                                <div style="position: absolute; left: ${position}%; top: -10px; width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 15px solid ${barColor}; transform: translateX(-50%); z-index: 4; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));"></div>
                                 
-                                <!-- Label -->
-                                <div style="position: absolute; left: ${position}%; top: 50%; transform: translate(-50%, -50%); z-index: 4; white-space: nowrap;">
-                                    <span class="badge" style="background: ${barColor}; font-size: 0.75rem;">
-                                        📅 Day ${currentDay + item.daysLeft}
+                                <!-- Deadline Vertical Line -->
+                                <div style="position: absolute; left: ${position}%; top: 0; bottom: 0; width: 3px; background: ${barColor}; z-index: 3; transform: translateX(-50%); box-shadow: 0 0 6px ${barColor};"></div>
+                                
+                                <!-- Pulsing Dot at Deadline -->
+                                <div style="position: absolute; left: ${position}%; top: 50%; width: 12px; height: 12px; background: ${barColor}; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; box-shadow: 0 0 0 0 ${barColor}; animation: pulse 2s infinite;"></div>
+                                
+                                <!-- Label Inside Bar -->
+                                <div class="d-flex align-items-center justify-content-center h-100" style="position: relative; z-index: 2;">
+                                    <span class="badge" style="background: ${barColor}; font-size: 0.9rem; padding: 0.5rem 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-weight: 600;">
+                                        📅 Deadline: Day ${item.date} (${item.daysLeft}d from now)
                                     </span>
                                 </div>
+                            </div>
+                            
+                            <!-- Progress Percentage -->
+                            <div class="mt-2 text-end">
+                                <small class="text-muted">
+                                    <strong>${((item.daysLeft / maxDays) * 100).toFixed(0)}%</strong> of timeline remaining
+                                </small>
                             </div>
                         </div>
                     `;
@@ -963,16 +961,56 @@ function renderGanttChart(deadlineItems, currentDay) {
             </div>
 
             <!-- Legend -->
-            <div class="mt-3 p-2 bg-white rounded border">
-                <small class="text-muted fw-bold">Legend:</small>
-                <div class="d-flex gap-3 mt-2 flex-wrap">
-                    <div><span class="badge bg-danger">Critical</span> <small>< 3 days</small></div>
-                    <div><span class="badge bg-warning text-dark">High</span> <small>3-7 days</small></div>
-                    <div><span class="badge bg-info">Medium</span> <small>7-14 days</small></div>
-                    <div><small>📅 Triangle = Deadline | 🔵 Shaded area = Time remaining</small></div>
+            <div class="mt-4 p-3 bg-white rounded border shadow-sm">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <small class="text-muted fw-bold d-block mb-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Priority Levels:
+                        </small>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge bg-danger" style="padding: 0.5rem 0.8rem;">🔴 Critical < 3d</span>
+                            <span class="badge bg-warning text-dark" style="padding: 0.5rem 0.8rem;">🟡 High 3-7d</span>
+                            <span class="badge bg-info" style="padding: 0.5rem 0.8rem;">🔵 Medium 7-14d</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted fw-bold d-block mb-2">
+                            <i class="bi bi-question-circle me-1"></i>
+                            How to Read:
+                        </small>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-caret-down-fill text-primary me-1"></i> Triangle = Deadline position
+                        </small>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-square-fill text-primary me-1" style="opacity: 0.4;"></i> Shaded area = Time passed
+                        </small>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-circle-fill text-primary me-1"></i> Pulsing dot = Urgent marker
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>
+        
+        <style>
+            @keyframes pulse {
+                0% {
+                    box-shadow: 0 0 0 0 ${deadlineItems.length > 0 && deadlineItems[0].daysLeft < 3 ? 'rgba(220,53,69,0.7)' : 'rgba(13,202,240,0.7)'};
+                }
+                50% {
+                    box-shadow: 0 0 0 8px rgba(0,0,0,0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+                }
+            }
+            
+            .gantt-bar-row:hover {
+                transform: translateX(5px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            }
+        </style>
     `;
 
     return ganttHTML;
@@ -2575,30 +2613,12 @@ function showAssessmentDetail(assessment, number) {
         <!-- KEEP: How to Improve Section -->
         <h4 class="mb-3 mt-5">💡 How to Improve</h4>
         <div class="row g-3">
-            <div class="col-md-4">
-                <div class="card h-100 border-primary" style="cursor: pointer;" onclick="alert('Opening lecture materials...')">
-                    <div class="card-body text-center">
-                        <i class="bi bi-play-circle text-primary" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3">📖 Review Lectures</h5>
-                        <p class="text-muted mb-0 small">Watch Week ${Math.floor(assessment.date_submitted / 7)} lectures again</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-info" style="cursor: pointer;" onclick="alert('Booking tutor session...')">
+            <div class="col-md-12">
+                <div class="card h-100 border-info" style="cursor: pointer;" onclick="bookTutorSession('${assessment.code_module}', ${assessment.number})">
                     <div class="card-body text-center">
                         <i class="bi bi-person-video text-info" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3">🎓 Book Tutor</h5>
-                        <p class="text-muted mb-0 small">Get 1-on-1 help on weak topics</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-success" style="cursor: pointer;" onclick="alert('Opening practice quiz...')">
-                    <div class="card-body text-center">
-                        <i class="bi bi-pencil-square text-success" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3">📝 Practice Quiz</h5>
-                        <p class="text-muted mb-0 small">Test yourself on similar questions</p>
+                        <h5 class="mt-3">🎓 Book Tutor Session</h5>
+                        <p class="text-muted mb-0">Get 1-on-1 help on topics you struggled with in this assessment</p>
                     </div>
                 </div>
             </div>
@@ -3456,25 +3476,6 @@ function showDeadlinePrep(assessment) {
     const daysLeft = assessment.date - currentDay;
 
     // Create deadline prep page if doesn't exist
-    let prepPage = document.getElementById('page-deadline-prep');
-    if (!prepPage) {
-        const contentDiv = document.querySelector('.content');
-        prepPage = document.createElement('div');
-        prepPage.id = 'page-deadline-prep';
-        prepPage.className = 'page-container';
-        prepPage.innerHTML = `
-            <button class="btn btn-light mb-3" onclick="navigateTo('page-deadlines')">
-                <i class="bi bi-arrow-left me-2"></i> Back to Deadlines
-            </button>
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0" id="deadlinePrepTitle"></h4>
-                </div>
-                <div class="card-body" id="deadlinePrepContent"></div>
-            </div>
-        `;
-        contentDiv.appendChild(prepPage);
-    }
 
     document.getElementById('deadlinePrepTitle').textContent =
         `🎯 ${assessment.assessment_type} Preparation - ${assessment.code_module}`;
@@ -3877,6 +3878,41 @@ function showUrgentActionsDetail() {
 
     container.innerHTML = html;
     navigateTo('page-urgent-actions');
+}
+
+// ============================================
+// BOOK TUTOR SESSION VIA EMAIL
+// ============================================
+function bookTutorSession(moduleCode, assessmentNumber) {
+    const data = window.studentData;
+    const student = data.student;
+
+    // Email details
+    const lecturerEmail = 'lecturer@university.edu'; // You can customize this
+    const subject = `Tutor Session Request - ${moduleCode} Assessment ${assessmentNumber}`;
+    const body = `Dear Lecturer,
+
+I would like to request a tutoring session for ${moduleCode}, specifically regarding Assessment ${assessmentNumber}.
+
+Student Details:
+- Student ID: ${student.id_student}
+- Module: ${moduleCode}
+- Assessment: Assessment ${assessmentNumber}
+- Topics needing help: [Please specify the topics you struggled with]
+
+Available times:
+- [Please provide 2-3 time slots that work for you]
+
+Thank you for your support.
+
+Best regards,
+Student ID: ${student.id_student}`;
+
+    // Create mailto link
+    const mailtoLink = `mailto:${lecturerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Open email client
+    window.location.href = mailtoLink;
 }
 
 // ============================================

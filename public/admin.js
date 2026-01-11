@@ -3271,7 +3271,7 @@ function renderStudentList(pageNumber = 1) {
                 <tr>
                     <th>Student ID</th>
                     <th>Status</th>
-                    <th>Credits Earned</th>
+                    <th>Credit Hours</th>
                     <th>Reason</th>
                 </tr>
             </thead>
@@ -3291,7 +3291,7 @@ function renderStudentList(pageNumber = 1) {
             <tr>
                 <th>Student ID</th>
                 <th>Status</th>
-                <th>Credits Earned</th>
+                <th>Credit Hours</th>
                 <th>Reason</th>
             </tr>
         </thead>
@@ -3394,7 +3394,7 @@ function renderStudentProfile(studentId) {
                                 ${student.final_result === 'Withdrawn' ? 'Deferred' : 'Active'}
                             </span>
                         </p>
-                        <p><strong>Credits Earned:</strong> ${student.studied_credits || 0} / 120</p>
+                        <p><strong>Credit Hours:</strong> ${student.studied_credits || 0} / 120</p>
                         <div class="progress mb-3" style="height: 25px;">
                             <div class="progress-bar bg-primary" style="width: ${creditPercentage}%">
                                 <strong>${creditPercentage}%</strong>
