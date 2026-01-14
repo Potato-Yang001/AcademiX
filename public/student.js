@@ -1174,103 +1174,6 @@ function renderGoalTracker(data) {
     container.innerHTML = html;
 }
 
-// 🧮 4. WHAT-IF CALCULATOR
-function renderWhatIfCalculator(data) {
-    const container = document.getElementById("whatIfCalculatorContent");
-    if (!container) return;
-
-    const modules = data.assessments
-        ? [...new Set(data.assessments.map(a => a.code_module))]
-        : [];
-
-    const html = `
-        <p class="text-muted mb-3">
-            <i class="bi bi-info-circle me-2"></i>
-            Use this calculator to see how future scores will affect your final grade
-        </p>
-        
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label"><strong>Select Module:</strong></label>
-                <select class="form-select" id="calcModule" onchange="updateWhatIfPrediction()">
-                    <option value="">-- Choose a module --</option>
-                    ${modules.map(m => `<option value="${m}">${m}</option>`).join('')}
-                </select>
-            </div>
-            
-            <div class="col-md-6">
-                <label class="form-label"><strong>Predicted Next Score (%):</strong></label>
-                <input type="range" class="form-range" min="0" max="100" value="70" 
-                       id="calcScore" oninput="updateWhatIfPrediction()">
-                <div class="text-center">
-                    <span class="badge bg-primary" style="font-size: 1.2rem;" id="calcScoreDisplay">70%</span>
-                </div>
-            </div>
-        </div>
-        
-        <div id="calcResult" class="mt-4"></div>
-    `;
-
-    container.innerHTML = html;
-    window.studentData = data; // Store for calculator
-}
-
-// Helper function for calculator
-function updateWhatIfPrediction() {
-    const module = document.getElementById('calcModule')?.value;
-    const score = document.getElementById('calcScore')?.value;
-    const scoreDisplay = document.getElementById('calcScoreDisplay');
-    const resultDiv = document.getElementById('calcResult');
-
-    if (scoreDisplay) scoreDisplay.textContent = score + '%';
-    if (!module || !resultDiv) return;
-
-    const data = window.studentData;
-    if (!data) return;
-
-    const moduleScores = data.scores.filter(s => s.code_module === module);
-    if (moduleScores.length === 0) return;
-
-    const currentAvg = moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length;
-    const predictedAvg = (currentAvg + Number(score)) / 2;
-
-    const passStatus = predictedAvg >= 80 ? 'Distinction' :
-        predictedAvg >= 60 ? 'Merit' :
-            predictedAvg >= 40 ? 'Pass' : 'Fail';
-
-    const color = predictedAvg >= 80 ? 'primary' :
-        predictedAvg >= 60 ? 'info' :
-            predictedAvg >= 40 ? 'success' : 'danger';
-
-    resultDiv.innerHTML = `
-        <div class="alert alert-${color}">
-            <h5 class="mb-3">📊 Prediction for ${module}:</h5>
-            <div class="row text-center">
-                <div class="col-md-4">
-                    <div class="mb-2">Current Average</div>
-                    <div class="display-6">${currentAvg.toFixed(1)}%</div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-2">Predicted Average</div>
-                    <div class="display-6 text-${color}">${predictedAvg.toFixed(1)}%</div>
-                </div>
-                <div class="col-md-4">
-                    <div class="mb-2">Status</div>
-                    <div class="display-6">
-                        <span class="badge bg-${color}">${passStatus}</span>
-                    </div>
-                </div>
-            </div>
-            <hr>
-            <p class="mb-0 text-center">
-                ${predictedAvg >= 40
-            ? `<i class="bi bi-check-circle me-2"></i>Great! You're on track to pass ${module}!`
-            : `<i class="bi bi-exclamation-triangle me-2"></i>You need to score higher to pass.`
-        }
-            </p>
-        </div>
-    `;
-}
 
 function generateAdaptiveRecommendations(data) {
     const trend = calculateTrend(data.scores);
@@ -2623,32 +2526,11 @@ function showAssessmentDetail(assessment, number) {
                 </div>
             </div>
         </div>
-
-        <!-- KEEP: Grade Impact Calculator -->
-        <div class="mt-4">
-            <h4 class="mb-3">🧮 Grade Impact Calculator</h4>
-            <div class="card bg-light">
-                <div class="card-body">
-                    <p class="mb-3">If you could retake this assessment, what score would you need?</p>
-                    
-                    <label class="form-label"><strong>Target Score:</strong></label>
-                    <input type="range" class="form-range" min="0" max="100" value="${Math.min(assessment.score + 20, 100)}" 
-                           id="retakeScore" oninput="updateRetakeCalculation()">
-                    <div class="text-center mb-3">
-                        <span class="badge bg-primary" style="font-size: 1.5rem;" id="retakeScoreDisplay">${Math.min(assessment.score + 20, 100)}%</span>
-                    </div>
-                    
-                    <div id="retakeResult" class="alert alert-info"></div>
-                </div>
-            </div>
-        </div>
     `;
 
     document.getElementById('assessmentDetailContent').innerHTML = content;
 
     // Initialize retake calculator
-    updateRetakeCalculation();
-
     navigateTo('page-assessment-detail');
 }
 
@@ -3302,58 +3184,6 @@ function generateComparisonInsights(modules) {
 }
 
 // ============================================
-// RETAKE CALCULATOR
-// ============================================
-function updateRetakeCalculation() {
-    const retakeScore = document.getElementById('retakeScore')?.value;
-    const retakeScoreDisplay = document.getElementById('retakeScoreDisplay');
-    const retakeResult = document.getElementById('retakeResult');
-
-    if (!retakeScore || !retakeResult) return;
-
-    if (retakeScoreDisplay) {
-        retakeScoreDisplay.textContent = retakeScore + '%';
-    }
-
-    const data = window.studentData;
-    const currentAssessmentScore = currentAssessment.score;
-
-    // Calculate what module average would be
-    const moduleScores = data.scores.filter(s => s.code_module === currentAssessment.code_module);
-    const currentAvg = moduleScores.reduce((sum, s) => sum + Number(s.score), 0) / moduleScores.length;
-
-    // Calculate new average if this assessment score changed
-    const newAvg = (currentAvg * moduleScores.length - currentAssessmentScore + Number(retakeScore)) / moduleScores.length;
-
-    const improvement = newAvg - currentAvg;
-    const color = improvement > 0 ? 'success' : 'secondary';
-
-    retakeResult.innerHTML = `
-        <div class="row text-center">
-            <div class="col-4">
-                <h6 class="text-muted">Current Module Avg</h6>
-                <h3>${currentAvg.toFixed(1)}%</h3>
-            </div>
-            <div class="col-4">
-                <h6 class="text-muted">With Retake</h6>
-                <h3 class="text-${color}">${newAvg.toFixed(1)}%</h3>
-            </div>
-            <div class="col-4">
-                <h6 class="text-muted">Change</h6>
-                <h3 class="text-${color}">${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}%</h3>
-            </div>
-        </div>
-        <hr>
-        <p class="mb-0 text-center">
-            ${improvement > 0
-            ? `<i class="bi bi-arrow-up-circle text-success me-2"></i>This would improve your ${currentAssessment.code_module} average!`
-            : `<i class="bi bi-info-circle text-secondary me-2"></i>Current score is already optimal.`
-        }
-        </p>
-    `;
-}
-
-// ============================================
 // PAGE: ALL DEADLINES & TIMELINE
 // ============================================
 function showAllDeadlines() {
@@ -3509,24 +3339,6 @@ function showDeadlinePrep(assessment) {
                     </div>
                 </div>
             </div>
-            
-            <div class="col-md-6">
-                <h5 class="mb-3">🧮 Grade Impact Calculator</h5>
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <p class="mb-2"><strong>Current ${assessment.code_module} Average:</strong> ${currentAvg.toFixed(1)}%</p>
-                        
-                        <label class="form-label">Predicted Score:</label>
-                        <input type="range" class="form-range" min="0" max="100" value="70" 
-                               id="prepScore" oninput="updatePrepCalculation('${assessment.code_module}', ${currentAvg}, ${moduleScores.length})">
-                        <div class="text-center mb-2">
-                            <span class="badge bg-primary" style="font-size: 1.2rem;" id="prepScoreDisplay">70%</span>
-                        </div>
-                        
-                        <div id="prepResult"></div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <h5 class="mb-3">📅 Study Plan (${daysLeft} days)</h5>
@@ -3563,29 +3375,6 @@ function showDeadlinePrep(assessment) {
     document.getElementById('deadlinePrepContent').innerHTML = content;
     updatePrepCalculation(assessment.code_module, currentAvg, moduleScores.length);
     navigateTo('page-deadline-prep');
-}
-
-function updatePrepCalculation(moduleCode, currentAvg, assessmentCount) {
-    const score = document.getElementById('prepScore')?.value || 70;
-    const display = document.getElementById('prepScoreDisplay');
-    const result = document.getElementById('prepResult');
-
-    if (display) display.textContent = score + '%';
-    if (!result) return;
-
-    const newAvg = (currentAvg * assessmentCount + Number(score)) / (assessmentCount + 1);
-    const change = newAvg - currentAvg;
-    const color = change > 0 ? 'success' : 'secondary';
-
-    result.innerHTML = `
-        <div class="alert alert-${color} mt-3 mb-0">
-            <div class="text-center">
-                <h6>Predicted New Average</h6>
-                <h3 class="mb-0">${newAvg.toFixed(1)}%</h3>
-                <small>${change >= 0 ? '+' : ''}${change.toFixed(1)}% change</small>
-            </div>
-        </div>
-    `;
 }
 
 // ============================================
