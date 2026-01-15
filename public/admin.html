@@ -757,27 +757,29 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
-                        <button class="btn btn-outline-primary w-100" onclick="scrollToSection('performance')">📊 Course
-                            Performance Analysis</button>
+                        <button class="btn btn-outline-primary w-100 course-section-btn" id="btn-performance"
+                            onclick="showCourseSection('performance')">
+                            📊 Course Performance Analysis
+                        </button>
                     </div>
                     <div class="col-12 col-md-6">
-                        <button class="btn btn-outline-primary w-100" onclick="scrollToSection('subjects')">📚 Subjects
-                            Catalog</button>
+                        <button class="btn btn-outline-primary w-100 course-section-btn" id="btn-subjects"
+                            onclick="showCourseSection('subjects')">
+                            📚 Subjects Catalog
+                        </button>
                     </div>
                     <div class="col-12 col-md-6">
-                        <button class="btn btn-outline-primary w-100" onclick="scrollToSection('capacity')">🏛️
-                            Enrollment Capacity Planning</button>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <button class="btn btn-outline-primary w-100" onclick="scrollToSection('demand')">📈 Demand
-                            Analysis & Enrollment Trends</button>
+                        <button class="btn btn-outline-primary w-100 course-section-btn" id="btn-capacity"
+                            onclick="showCourseSection('capacity')">
+                            🏛️ Enrollment Capacity Planning
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Course Performance Analysis -->
-        <div id="performance" class="mb-4">
+        <div id="performance" class="mb-4 course-section" style="display: none;">
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <i class="bi bi-bar-chart-line me-2"></i>
@@ -840,7 +842,7 @@
         </div>
 
         <!-- Subjects Catalog - Course Information -->
-        <div id="subjects" class="mb-4">
+        <div id="subjects" class="mb-4 course-section" style="display: none;">
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <i class="bi bi-book-fill me-2"></i>
@@ -926,7 +928,7 @@
         </div>
 
         <!-- Capacity Planning - Seat Availability -->
-        <div id="capacity" class="mb-4">
+        <div id="capacity" class="mb-4 course-section" style="display: none;">
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-pie-chart-fill me-2"></i>
@@ -991,96 +993,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Demand Analysis - Enrollment Trends -->
-        <div id="demand" class="mb-4">
-            <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <i class="bi bi-graph-up me-2"></i>
-                    Demand Analysis & Enrollment Trends
-                    <small class="d-block mt-1 opacity-75">Click on trend areas to see course details</small>
-                </div>
-
-                <!-- NEW: Chart View (shows first) -->
-                <div class="card-body" id="demandChartView">
-                    <div class="alert alert-warning">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>Trend Analysis:</strong> This chart shows enrollment demand patterns. Growing courses
-                        appear at the top, declining courses at the bottom. Click any segment for detailed trends.
-                    </div>
-                    <div class="row g-4 mb-4">
-                        <div class="col-md-4">
-                            <div class="card border-success text-center">
-                                <div class="card-body">
-                                    <i class="bi bi-graph-up-arrow fs-1 text-success"></i>
-                                    <h3 class="mt-2 text-success" id="growingCoursesCount">0</h3>
-                                    <p class="mb-0">Growing Demand</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card border-info text-center">
-                                <div class="card-body">
-                                    <i class="bi bi-dash-lg fs-1 text-info"></i>
-                                    <h3 class="mt-2 text-info" id="stableCoursesCount">0</h3>
-                                    <p class="mb-0">Stable Demand</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card border-danger text-center">
-                                <div class="card-body">
-                                    <i class="bi bi-graph-down-arrow fs-1 text-danger"></i>
-                                    <h3 class="mt-2 text-danger" id="decliningCoursesCount">0</h3>
-                                    <p class="mb-0">Declining Demand</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chart-container" style="height: 400px;">
-                        <canvas id="demandTrendsChart"></canvas>
-                    </div>
-                    <div class="text-center mt-3">
-                        <button class="btn btn-outline-warning" onclick="showAllDemandDetails()">
-                            <i class="bi bi-table me-1"></i> View Detailed Table
-                        </button>
-                    </div>
-                </div>
-
-                <!-- EXISTING: Table View (hidden initially) -->
-                <div class="card-body p-0" id="demandTableView" style="display: none;">
-                    <div class="p-3 bg-light border-bottom">
-                        <button class="btn btn-secondary btn-sm" onclick="backToDemandChart()">
-                            <i class="bi bi-arrow-left me-1"></i> Back to Chart
-                        </button>
-                        <span class="ms-3 text-muted" id="demandFilterLabel">Showing all courses</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th>Module</th>
-                                    <th>Current Enrollment</th>
-                                    <th>Trend</th>
-                                    <th>Demand Level</th>
-                                    <th>Forecast</th>
-                                </tr>
-                            </thead>
-                            <tbody id="demandTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center py-4">
-                                        <div class="spinner-border text-warning" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p class="mt-2 text-muted">Loading demand analysis...</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- ENROLLMENT BREAKDOWN PAGE -->
@@ -1136,6 +1048,15 @@
             <div class="card-body">
                 <input type="text" id="studentSearch" placeholder="🔍 Search student ID..." class="form-control mb-3"
                     onkeyup="filterStudentList()">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button class="btn btn-primary" onclick="openBatchEmailModal()" id="batchEmailBtn" disabled>
+                        <i class="bi bi-envelope-fill me-2"></i>Send Batch Email (<span id="selectedCount">0</span>
+                        selected)
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearAllSelections()">
+                        <i class="bi bi-x-circle me-1"></i>Clear Selection
+                    </button>
+                </div>
 
                 <!-- ✅ ADD PAGINATION CONTROLS -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1227,6 +1148,55 @@
             </div>
             <div class="card-body" id="passFailByCourseContent">
                 <!-- Populated by renderPassFailByCourse() -->
+            </div>
+        </div>
+    </div>
+    <!-- Batch Email Modal -->
+    <div class="modal fade" id="batchEmailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-envelope-fill me-2"></i>Send Batch Email
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Sending to <strong><span id="modalSelectedCount">0</span> students</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Subject</label>
+                        <input type="text" class="form-control" id="emailSubject" placeholder="Enter email subject">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Message</label>
+                        <textarea class="form-control" id="emailMessage" rows="8"
+                            placeholder="Enter your message here..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Template (Optional)</label>
+                        <select class="form-select" id="emailTemplate" onchange="loadEmailTemplate()">
+                            <option value="">-- Select Template --</option>
+                            <option value="welcome">Welcome New Students</option>
+                            <option value="reminder">Registration Reminder</option>
+                            <option value="graduation">Graduation Notification</option>
+                            <option value="reenroll">Re-enrollment Invitation</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="sendBatchEmail()">
+                        <i class="bi bi-send-fill me-1"></i>Send Email
+                    </button>
+                </div>
             </div>
         </div>
     </div>

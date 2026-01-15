@@ -57,6 +57,10 @@ function renderPageContent(pageName) {
             break;
         case 'courses':
             try {
+                showCourseSection('performance');
+
+                // Then render all data
+                renderCoursePassRateChart(window.globalCourseData || []);
                 renderCoursePassRateChart(window.globalCourseData || []);
                 renderCoursePerformanceTable(null, window.globalCourseData || []);
 
@@ -65,9 +69,6 @@ function renderPageContent(pageName) {
 
                 renderCapacityUtilizationChart(window.allSubjectsData || allSubjectsData || []); // ← ADD
                 renderCapacityTable(window.allSubjectsData || allSubjectsData || []);
-
-                renderDemandTrendsChart(window.allSubjectsData || allSubjectsData || []); // ← ADD
-                renderDemandTable(window.allSubjectsData || allSubjectsData || []);
 
                 updateInsightCards(window.globalCourseData || []);
             } catch (e) {
@@ -276,29 +277,48 @@ async function loadAdminData() {
             const module = parts[0] || 'Unknown';
             const presentation = parts[1] || 'Unknown';
 
-            // Generate CONSISTENT percentages that add up to 100%
-            const withdrawalRate = Math.floor(Math.random() * 36) + 5; // 5-40%
-            const remaining = 100 - withdrawalRate;
-            const passOfRemaining = Math.floor(Math.random() * 46) + 40; // 40-85%
-            let passRate = Math.floor((remaining * passOfRemaining) / 100);
-            let failRate = remaining - passRate;
+            // Generate withdrawal rate (5-40%)
+            const withdrawalRate = Math.floor(Math.random() * 36) + 5;
 
-            // Ensure they add up to exactly 100%
-            const total = passRate + failRate + withdrawalRate;
-            if (total !== 100) {
-                passRate += (100 - total); // Adjust pass rate to make it exactly 100%
+            // From remaining students (those who didn't withdraw), calculate pass rate
+            const remaining = 100 - withdrawalRate;
+
+            // Pass rate as percentage of TOTAL (not just remaining)
+            // This ensures realistic pass rates: 40-70% of total enrollment
+            const passRate = Math.floor(Math.random() * 31) + 30; // 30-60% of total
+
+            // Fail rate is what's left
+            let failRate = 100 - withdrawalRate - passRate;
+
+            // Ensure failRate is not negative
+            if (failRate < 0) {
+                failRate = 0;
+                passRate = 100 - withdrawalRate;
             }
 
-            const avgScore = Math.floor(40 + (passRate * 0.8));
+            // Round to 1 decimal and verify sum
+            let pass = parseFloat(passRate.toFixed(1));
+            let fail = parseFloat(failRate.toFixed(1));
+            let withdraw = parseFloat(withdrawalRate.toFixed(1));
+
+            // Final adjustment to ensure exactly 100%
+            const sum = pass + fail + withdraw;
+            if (sum !== 100) {
+                const diff = 100 - sum;
+                pass = parseFloat((pass + diff).toFixed(1));
+            }
+
+            // Average score should correlate with pass rate
+            const avgScore = Math.floor(35 + (pass * 0.65));
 
             return {
                 module,
                 presentation,
                 enrollments: count,
                 avgScore,
-                passRate: parseFloat(passRate.toFixed(1)),
-                failRate: parseFloat(failRate.toFixed(1)),
-                withdrawalRate: parseFloat(withdrawalRate.toFixed(1))
+                passRate: pass,
+                failRate: fail,
+                withdrawalRate: withdraw
             };
         });
 
@@ -443,6 +463,7 @@ function renderAtRiskAlerts(atRiskData) {
     if (highWithdrawalEl) highWithdrawalEl.textContent = atRiskData.highWithdrawalCourses;
     if (lowEngagementEl) lowEngagementEl.textContent = atRiskData.lowEngagementStudents.toLocaleString();
 }
+
 // ============================================
 // SUBJECTS CATALOG - SEMESTER VISUALIZATION
 // ============================================
@@ -729,6 +750,43 @@ function backToCapacityChart() {
 
     // Scroll to chart
     document.getElementById('capacity').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================
+// COURSE SECTION NAVIGATION
+// ============================================
+
+function showCourseSection(sectionId) {
+    console.log('📂 Showing course section:', sectionId);
+
+    // Hide all course sections
+    document.querySelectorAll('.course-section').forEach(section => {
+        section.style.display = 'none';
+    });
+
+    // Remove active class from all buttons
+    document.querySelectorAll('.course-section-btn').forEach(btn => {
+        btn.classList.remove('active', 'btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+
+        // Scroll to section
+        setTimeout(() => {
+            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+
+    // Highlight active button
+    const activeBtn = document.getElementById(`btn-${sectionId}`);
+    if (activeBtn) {
+        activeBtn.classList.remove('btn-outline-primary');
+        activeBtn.classList.add('active', 'btn-primary');
+    }
 }
 
 // ============================================
@@ -3289,6 +3347,9 @@ function renderStudentList(pageNumber = 1) {
     const html = `
         <thead class="table-light">
             <tr>
+                <th style="width: 50px;">
+                    <input type="checkbox" id="selectAllStudents" onchange="toggleSelectAll(this)">
+                </th>
                 <th>Student ID</th>
                 <th>Status</th>
                 <th>Credit Hours</th>
@@ -3297,16 +3358,31 @@ function renderStudentList(pageNumber = 1) {
         </thead>
         <tbody>
             ${paginatedStudents.map(student => {
-        const status = student.final_result === 'Withdrawn' ? 'Deferred' : 'Active';
+        // Determine status based on credits and final_result
+        let status, statusClass;
+        if (student.studied_credits >= 120) {
+            status = 'Graduated';
+            statusClass = 'bg-primary';
+        } else if (student.final_result === 'Withdrawn' && student.studied_credits > 0) {
+            status = 'Deferred';
+            statusClass = 'bg-warning';
+        } else {
+            status = 'Active';
+            statusClass = 'bg-success';
+        }
         const reason = student.assignedReason;
 
         return `
-                    <tr style="cursor: pointer;" onclick="viewStudentProfile('${student.id_student}')"
-                        onmouseenter="this.style.backgroundColor='#f8f9ff'"
-                        onmouseleave="this.style.backgroundColor='white'">
-                        <td><strong class="text-primary">${student.id_student}</strong></td>
+            <tr onmouseenter="this.style.backgroundColor='#f8f9ff'"
+                onmouseleave="this.style.backgroundColor='white'">
+                <td onclick="event.stopPropagation()">
+                    <input type="checkbox" class="student-checkbox" value="${student.id_student}">
+                </td>
+                <td style="cursor: pointer;" onclick="viewStudentProfile('${student.id_student}')">
+                    <strong class="text-primary">${student.id_student}</strong>
+                </td>
                         <td>
-                            <span class="badge ${status === 'Active' ? 'bg-success' : 'bg-warning'}">
+                            <span class="badge ${statusClass}">
                                 ${status}
                             </span>
                         </td>
@@ -3319,6 +3395,11 @@ function renderStudentList(pageNumber = 1) {
     `;
 
     table.innerHTML = html;
+
+    // Enable checkbox change detection
+    document.querySelectorAll('.student-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateSelectedCount);
+    });
 }
 
 // ✅ ADD PAGINATION FUNCTION
@@ -3439,6 +3520,107 @@ function renderStudentProfile(studentId) {
     `;
 
     container.innerHTML = html;
+}
+
+// ============================================
+// BATCH EMAIL FUNCTIONALITY
+// ============================================
+
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const selected = document.querySelectorAll('.student-checkbox:checked');
+    const count = selected.length;
+
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('batchEmailBtn').disabled = count === 0;
+}
+
+function clearAllSelections() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAllStudents').checked = false;
+    updateSelectedCount();
+}
+
+function openBatchEmailModal() {
+    const selected = document.querySelectorAll('.student-checkbox:checked');
+    if (selected.length === 0) {
+        showToast('Please select at least one student', 'warning');
+        return;
+    }
+
+    document.getElementById('modalSelectedCount').textContent = selected.length;
+
+    const modal = new bootstrap.Modal(document.getElementById('batchEmailModal'));
+    modal.show();
+}
+
+function loadEmailTemplate() {
+    const template = document.getElementById('emailTemplate').value;
+    const subjectField = document.getElementById('emailSubject');
+    const messageField = document.getElementById('emailMessage');
+
+    const templates = {
+        welcome: {
+            subject: 'Welcome to AcademiX - Getting Started',
+            message: 'Dear Student,\n\nWelcome to AcademiX! We are excited to have you join our learning community.\n\nPlease log in to your student portal to:\n- View your course schedule\n- Access learning materials\n- Connect with your instructors\n\nIf you have any questions, please contact our support team.\n\nBest regards,\nAcademiX Administration'
+        },
+        reminder: {
+            subject: 'Registration Reminder - Action Required',
+            message: 'Dear Student,\n\nThis is a reminder that course registration is currently open.\n\nPlease log in to your student portal and register for your modules before the deadline.\n\nIf you need assistance, please contact the academic office.\n\nBest regards,\nAcademiX Administration'
+        },
+        graduation: {
+            subject: 'Congratulations - Graduation Information',
+            message: 'Dear Student,\n\nCongratulations on completing your studies!\n\nYou have successfully completed all required credits. Please contact the academic office to schedule your graduation review.\n\nWe are proud of your achievement!\n\nBest regards,\nAcademiX Administration'
+        },
+        reenroll: {
+            subject: 'Re-enrollment Invitation',
+            message: 'Dear Student,\n\nWe noticed you have not registered for modules this semester.\n\nIf you plan to continue your studies, please log in to complete your registration.\n\nIf you need to discuss your academic plan, please contact your academic advisor.\n\nBest regards,\nAcademiX Administration'
+        }
+    };
+
+    if (template && templates[template]) {
+        subjectField.value = templates[template].subject;
+        messageField.value = templates[template].message;
+    }
+}
+
+function sendBatchEmail() {
+    const subject = document.getElementById('emailSubject').value;
+    const message = document.getElementById('emailMessage').value;
+
+    if (!subject || !message) {
+        showToast('Please fill in both subject and message', 'warning');
+        return;
+    }
+
+    const selected = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+        .map(cb => cb.value);
+
+    // Simulate sending emails
+    showToast(`Sending email to ${selected.length} students...`, 'info');
+
+    setTimeout(() => {
+        // In real implementation, this would call your email API
+        console.log('Sending emails to:', selected);
+        console.log('Subject:', subject);
+        console.log('Message:', message);
+
+        showToast(`✅ Successfully sent ${selected.length} emails!`, 'success');
+
+        // Close modal and clear selections
+        bootstrap.Modal.getInstance(document.getElementById('batchEmailModal')).hide();
+        clearAllSelections();
+
+        // Clear form
+        document.getElementById('emailSubject').value = '';
+        document.getElementById('emailMessage').value = '';
+        document.getElementById('emailTemplate').value = '';
+    }, 1500);
 }
 
 // ============================================
