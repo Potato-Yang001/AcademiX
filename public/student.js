@@ -1526,15 +1526,14 @@ function showAllDeadlines() {
 // ============================================
 // GENERATE QUESTION ANALYSIS (Pass/Fail)
 // ============================================
-function generateQuestionAnalysis(overallScore, moduleCode) {
+function generateQuestionAnalysis(overallScore, moduleCode, assessmentNumber) {
     // Generate 10-15 questions based on score
-    const totalQuestions = Math.floor(Math.random() * 6) + 10; // 10-15 questions
+    const totalQuestions = Math.floor(Math.random() * 6) + 10;
     const correctCount = Math.round((overallScore / 100) * totalQuestions);
     const incorrectCount = totalQuestions - correctCount;
 
-    // ✅ MODULE-SPECIFIC QUESTION BANKS
+    // ✅ MODULE-SPECIFIC QUESTION BANKS (same as before)
     const questionBanksByModule = {
-        // Module AAA: Computer Science & Programming
         'AAA': [
             {
                 topic: 'Algorithms',
@@ -1643,7 +1642,6 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
             }
         ],
 
-        // Module BBB: Database Systems & Data Management
         'BBB': [
             {
                 topic: 'Database Design',
@@ -1752,7 +1750,6 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
             }
         ],
 
-        // Module CCC: Web Development & Technologies
         'CCC': [
             {
                 topic: 'Web Basics',
@@ -1861,7 +1858,6 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
             }
         ],
 
-        // Module DDD: Data Science & Statistics
         'DDD': [
             {
                 topic: 'Statistics Basics',
@@ -1974,15 +1970,32 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
     // ✅ Get questions for the specific module (with fallback to AAA)
     const moduleQuestions = questionBanksByModule[moduleCode] || questionBanksByModule['AAA'];
 
-    // ✅ Shuffle and select unique questions for this assessment
-    const shuffledBank = [...moduleQuestions].sort(() => Math.random() - 0.5);
-    const selectedQuestions = shuffledBank.slice(0, totalQuestions);
+    // ✅ KEY FIX: Use assessment number to create unique shuffle seed
+    const assessmentSeed = assessmentNumber || 1;
+
+    // Create a copy and shuffle based on assessment number
+    const shuffledBank = [...moduleQuestions].sort((a, b) => {
+        // ✅ Use assessment number + question text to create deterministic but unique order
+        const seedA = (a.question.charCodeAt(0) * assessmentSeed) % 100;
+        const seedB = (b.question.charCodeAt(0) * assessmentSeed) % 100;
+        return seedA - seedB + (Math.random() - 0.5);
+    });
+
+    // ✅ Select different questions based on assessment number
+    const startIndex = (assessmentSeed - 1) * 5 % moduleQuestions.length;
+    const selectedQuestions = shuffledBank.slice(startIndex, startIndex + totalQuestions);
+
+    // If not enough questions from slice, wrap around
+    if (selectedQuestions.length < totalQuestions) {
+        const remaining = totalQuestions - selectedQuestions.length;
+        selectedQuestions.push(...shuffledBank.slice(0, remaining));
+    }
 
     const questions = [];
 
     // Generate correct answers
     for (let i = 0; i < correctCount; i++) {
-        const q = selectedQuestions[i];
+        const q = selectedQuestions[i % selectedQuestions.length];
         questions.push({
             number: i + 1,
             title: q.question,
@@ -1997,7 +2010,7 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
 
     // Generate incorrect answers
     for (let i = correctCount; i < totalQuestions; i++) {
-        const q = selectedQuestions[i];
+        const q = selectedQuestions[i % selectedQuestions.length];
         const wrongAnswer = q.options.filter(opt => opt !== q.correct)[Math.floor(Math.random() * 3)];
 
         questions.push({
@@ -2012,8 +2025,10 @@ function generateQuestionAnalysis(overallScore, moduleCode) {
         });
     }
 
-    // Shuffle to mix correct/incorrect
-    questions.sort(() => Math.random() - 0.5);
+    // Shuffle to mix correct/incorrect (using assessment number for uniqueness)
+    questions.sort((a, b) => {
+        return ((a.number * assessmentSeed) % 100) - ((b.number * assessmentSeed) % 100);
+    });
 
     return {
         total: totalQuestions,
@@ -2883,7 +2898,7 @@ function showAssessmentDetail(assessment, number) {
         `Assessment ${number} - ${assessment.code_module}`;
 
     // ✅ Generate question breakdown (pass/fail analysis)
-    const questionAnalysis = generateQuestionAnalysis(assessment.score);
+    const questionAnalysis = generateQuestionAnalysis(assessment.score, assessment.code_module, number);
 
     const content = `
         <div class="row mb-4">
