@@ -1289,8 +1289,8 @@ function showModuleBreakdown() {
 
     document.getElementById('totalModules').textContent = Object.keys(moduleScores).length;
 
-    // Render module list
-    const html = Object.values(moduleScores).map(mod => {
+    // Generate module list HTML
+    const moduleListHTML = Object.values(moduleScores).map(mod => {
         const avg = mod.scores.reduce((a, b) => a + b, 0) / mod.scores.length;
         let status, statusClass, icon;
 
@@ -1324,12 +1324,74 @@ function showModuleBreakdown() {
         `;
     }).join('');
 
-    document.getElementById('modulesList').innerHTML = html;
+    // ✅ NEW: Update page content with toggle buttons
+    const pageContent = document.getElementById('page-modules');
+    if (pageContent) {
+        const cardBody = pageContent.querySelector('.card-body');
 
-    // Render interactive performance trend chart
+        cardBody.innerHTML = `
+            <!-- VIEW TOGGLE BUTTONS -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0">Your Enrolled Modules</h5>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary active" id="moduleListViewBtn" onclick="toggleModuleView('list')">
+                        <i class="bi bi-list-ul me-2"></i>
+                        List View
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="moduleChartViewBtn" onclick="toggleModuleView('chart')">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Chart View
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEW 1: MODULE LIST -->
+            <div id="moduleListView">
+                ${moduleListHTML}
+            </div>
+
+            <!-- VIEW 2: PERFORMANCE CHART -->
+            <div id="moduleChartView" style="display: none;">
+                <h5 class="mb-3">📊 Performance Trends (Click points for details)</h5>
+                <div class="chart-container">
+                    <canvas id="performanceTrendChart"></canvas>
+                </div>
+            </div>
+        `;
+    }
+
+    // Render the chart (it will be hidden initially)
     renderPerformanceTrendChart(moduleScores);
 
     navigateTo('page-modules');
+}
+
+// ✅ NEW: Toggle function for Module views
+function toggleModuleView(view) {
+    const listView = document.getElementById('moduleListView');
+    const chartView = document.getElementById('moduleChartView');
+    const listBtn = document.getElementById('moduleListViewBtn');
+    const chartBtn = document.getElementById('moduleChartViewBtn');
+
+    if (view === 'list') {
+        listView.style.display = 'block';
+        chartView.style.display = 'none';
+        listBtn.classList.add('active');
+        listBtn.classList.remove('btn-outline-primary');
+        listBtn.classList.add('btn-primary');
+        chartBtn.classList.remove('active');
+        chartBtn.classList.add('btn-outline-primary');
+        chartBtn.classList.remove('btn-primary');
+    } else {
+        listView.style.display = 'none';
+        chartView.style.display = 'block';
+        chartBtn.classList.add('active');
+        chartBtn.classList.remove('btn-outline-primary');
+        chartBtn.classList.add('btn-primary');
+        listBtn.classList.remove('active');
+        listBtn.classList.add('btn-outline-primary');
+        listBtn.classList.remove('btn-primary');
+    }
 }
 
 // ============================================
@@ -1464,52 +1526,493 @@ function showAllDeadlines() {
 // ============================================
 // GENERATE QUESTION ANALYSIS (Pass/Fail)
 // ============================================
-function generateQuestionAnalysis(overallScore) {
+function generateQuestionAnalysis(overallScore, moduleCode) {
     // Generate 10-15 questions based on score
     const totalQuestions = Math.floor(Math.random() * 6) + 10; // 10-15 questions
     const correctCount = Math.round((overallScore / 100) * totalQuestions);
     const incorrectCount = totalQuestions - correctCount;
 
-    const topics = [
-        'Basic Concepts',
-        'Advanced Theory',
-        'Practical Application',
-        'Problem Solving',
-        'Critical Analysis',
-        'Data Interpretation'
-    ];
+    // ✅ MODULE-SPECIFIC QUESTION BANKS
+    const questionBanksByModule = {
+        // Module AAA: Computer Science & Programming
+        'AAA': [
+            {
+                topic: 'Algorithms',
+                question: 'Which sorting algorithm has the best average-case time complexity?',
+                options: ['A) Bubble Sort O(n²)', 'B) Merge Sort O(n log n)', 'C) Selection Sort O(n²)', 'D) Insertion Sort O(n²)'],
+                correct: 'B) Merge Sort O(n log n)',
+                hint: 'Compare the time complexities of different sorting algorithms.'
+            },
+            {
+                topic: 'Data Structures',
+                question: 'Which data structure uses LIFO (Last In, First Out) principle?',
+                options: ['A) Queue', 'B) Stack', 'C) Array', 'D) Linked List'],
+                correct: 'B) Stack',
+                hint: 'Think of a stack of plates - you remove the last one you placed on top.'
+            },
+            {
+                topic: 'Programming Fundamentals',
+                question: 'What is recursion in programming?',
+                options: ['A) A loop that never ends', 'B) A function that calls itself', 'C) Multiple functions calling each other', 'D) A type of array'],
+                correct: 'B) A function that calls itself',
+                hint: 'Recursion involves a function calling itself with modified parameters.'
+            },
+            {
+                topic: 'Complexity Analysis',
+                question: 'What is the time complexity of binary search on a sorted array?',
+                options: ['A) O(n)', 'B) O(log n)', 'C) O(n²)', 'D) O(1)'],
+                correct: 'B) O(log n)',
+                hint: 'Binary search divides the search space in half each time.'
+            },
+            {
+                topic: 'Programming Concepts',
+                question: 'What is the output of: print(2 ** 3 ** 2)?',
+                options: ['A) 64', 'B) 512', 'C) 256', 'D) 128'],
+                correct: 'B) 512',
+                hint: 'Exponentiation is right-associative: 2 ** (3 ** 2) = 2 ** 9 = 512.'
+            },
+            {
+                topic: 'Object-Oriented Programming',
+                question: 'In OOP, what does polymorphism allow you to do?',
+                options: ['A) Hide data from users', 'B) Use a single interface for different data types', 'C) Create multiple classes', 'D) Delete objects'],
+                correct: 'B) Use a single interface for different data types',
+                hint: 'Polymorphism enables objects of different types to be treated uniformly.'
+            },
+            {
+                topic: 'Software Design',
+                question: 'Which design pattern ensures only one instance of a class exists?',
+                options: ['A) Factory Pattern', 'B) Singleton Pattern', 'C) Observer Pattern', 'D) Strategy Pattern'],
+                correct: 'B) Singleton Pattern',
+                hint: 'This pattern controls object instantiation to ensure uniqueness.'
+            },
+            {
+                topic: 'Programming Basics',
+                question: 'What is a variable in programming?',
+                options: ['A) A constant value', 'B) A container for storing data', 'C) A type of loop', 'D) A programming language'],
+                correct: 'B) A container for storing data',
+                hint: 'Variables store values that can change during execution.'
+            },
+            {
+                topic: 'Algorithm Analysis',
+                question: 'What is Big O notation used for?',
+                options: ['A) Measuring code length', 'B) Describing algorithm efficiency', 'C) Counting variables', 'D) Naming functions'],
+                correct: 'B) Describing algorithm efficiency',
+                hint: 'Big O describes how performance scales with input size.'
+            },
+            {
+                topic: 'OOP Principles',
+                question: 'What is encapsulation in OOP?',
+                options: ['A) Hiding implementation details', 'B) Creating multiple instances', 'C) Inheriting from parents', 'D) Overloading methods'],
+                correct: 'A) Hiding implementation details',
+                hint: 'Encapsulation bundles data and methods while restricting access.'
+            },
+            {
+                topic: 'Software Development',
+                question: 'What is an API?',
+                options: ['A) A programming language', 'B) Application Programming Interface', 'C) Automated Program Instruction', 'D) Advanced Processing Interface'],
+                correct: 'B) Application Programming Interface',
+                hint: 'APIs allow different software applications to communicate.'
+            },
+            {
+                topic: 'Programming Constructs',
+                question: 'What is the purpose of a constructor?',
+                options: ['A) To destroy objects', 'B) To initialize objects when created', 'C) To compare objects', 'D) To copy objects'],
+                correct: 'B) To initialize objects when created',
+                hint: 'Constructors run automatically when an object is instantiated.'
+            },
+            {
+                topic: 'Code Quality',
+                question: 'What is version control used for?',
+                options: ['A) To track code changes', 'B) To delete old code', 'C) To compile programs', 'D) To encrypt data'],
+                correct: 'A) To track code changes',
+                hint: 'Tools like Git help manage code versions and collaboration.'
+            },
+            {
+                topic: 'Development Tools',
+                question: 'What does IDE stand for?',
+                options: ['A) Integrated Development Environment', 'B) Internet Data Exchange', 'C) Internal Design Editor', 'D) Interactive Debug Engine'],
+                correct: 'A) Integrated Development Environment',
+                hint: 'IDEs provide tools for writing, testing, and debugging code.'
+            },
+            {
+                topic: 'Software Methodology',
+                question: 'Which is NOT an Agile principle?',
+                options: ['A) Individuals over processes', 'B) Documentation over working software', 'C) Customer collaboration', 'D) Responding to change'],
+                correct: 'B) Documentation over working software',
+                hint: 'Agile values working software over comprehensive documentation.'
+            }
+        ],
+
+        // Module BBB: Database Systems & Data Management
+        'BBB': [
+            {
+                topic: 'Database Design',
+                question: 'What is the primary purpose of normalization in database design?',
+                options: ['A) To increase redundancy', 'B) To eliminate redundancy and improve integrity', 'C) To make queries slower', 'D) To increase storage'],
+                correct: 'B) To eliminate redundancy and improve integrity',
+                hint: 'Normalization organizes data to reduce duplication.'
+            },
+            {
+                topic: 'Database Theory',
+                question: 'In a database, what does ACID stand for?',
+                options: ['A) Atomicity, Consistency, Isolation, Durability', 'B) Access, Control, Integration, Design', 'C) Automatic, Controlled, Isolated, Distributed', 'D) Advanced, Consistent, Indexed, Durable'],
+                correct: 'A) Atomicity, Consistency, Isolation, Durability',
+                hint: 'ACID properties guarantee reliable database transactions.'
+            },
+            {
+                topic: 'SQL Commands',
+                question: 'Which SQL command removes all records without deleting the table structure?',
+                options: ['A) DELETE', 'B) DROP', 'C) TRUNCATE', 'D) REMOVE'],
+                correct: 'C) TRUNCATE',
+                hint: 'This command efficiently removes all rows while keeping structure.'
+            },
+            {
+                topic: 'Database Keys',
+                question: 'What is a primary key in a relational database?',
+                options: ['A) Can have duplicates', 'B) A unique identifier for each record', 'C) The first column', 'D) A foreign key reference'],
+                correct: 'B) A unique identifier for each record',
+                hint: 'Primary keys must be unique and cannot be NULL.'
+            },
+            {
+                topic: 'Database Operations',
+                question: 'What is a JOIN operation used for in SQL?',
+                options: ['A) To combine rows from two or more tables', 'B) To delete records', 'C) To create new tables', 'D) To sort data'],
+                correct: 'A) To combine rows from two or more tables',
+                hint: 'JOINs merge related data from different tables.'
+            },
+            {
+                topic: 'Data Relationships',
+                question: 'What is a foreign key?',
+                options: ['A) A unique key from another country', 'B) A field linking to primary key in another table', 'C) The first key in a table', 'D) A backup key'],
+                correct: 'B) A field linking to primary key in another table',
+                hint: 'Foreign keys establish relationships between tables.'
+            },
+            {
+                topic: 'Database Indexing',
+                question: 'What is the purpose of an index in a database?',
+                options: ['A) To slow down queries', 'B) To speed up data retrieval', 'C) To delete data', 'D) To encrypt data'],
+                correct: 'B) To speed up data retrieval',
+                hint: 'Indexes work like a book index - faster lookups.'
+            },
+            {
+                topic: 'Transaction Management',
+                question: 'What does COMMIT do in a database transaction?',
+                options: ['A) Cancels all changes', 'B) Saves all changes permanently', 'C) Creates a backup', 'D) Locks the database'],
+                correct: 'B) Saves all changes permanently',
+                hint: 'COMMIT makes all transaction changes permanent.'
+            },
+            {
+                topic: 'Database Design',
+                question: 'What is denormalization?',
+                options: ['A) Removing all normalization', 'B) Adding redundancy for performance', 'C) Deleting data', 'D) Creating backups'],
+                correct: 'B) Adding redundancy for performance',
+                hint: 'Denormalization trades some redundancy for query speed.'
+            },
+            {
+                topic: 'SQL Queries',
+                question: 'Which SQL keyword is used to sort results?',
+                options: ['A) SORT BY', 'B) ORDER BY', 'C) ARRANGE BY', 'D) ORGANIZE BY'],
+                correct: 'B) ORDER BY',
+                hint: 'This clause orders query results in ascending or descending order.'
+            },
+            {
+                topic: 'Data Integrity',
+                question: 'What is referential integrity?',
+                options: ['A) Ensuring foreign keys reference valid records', 'B) Making backups', 'C) Encrypting data', 'D) Sorting tables'],
+                correct: 'A) Ensuring foreign keys reference valid records',
+                hint: 'Referential integrity maintains valid relationships between tables.'
+            },
+            {
+                topic: 'Database Security',
+                question: 'What is SQL injection?',
+                options: ['A) A security vulnerability', 'B) A type of JOIN', 'C) A backup method', 'D) A sorting technique'],
+                correct: 'A) A security vulnerability',
+                hint: 'SQL injection exploits improper input validation.'
+            },
+            {
+                topic: 'Query Optimization',
+                question: 'What is a subquery in SQL?',
+                options: ['A) A query within another query', 'B) A broken query', 'C) A fast query', 'D) A table name'],
+                correct: 'A) A query within another query',
+                hint: 'Subqueries are nested queries used in SELECT, WHERE, or FROM.'
+            },
+            {
+                topic: 'Database Types',
+                question: 'What is a NoSQL database?',
+                options: ['A) A database that uses SQL', 'B) A non-relational database', 'C) A broken database', 'D) A spreadsheet'],
+                correct: 'B) A non-relational database',
+                hint: 'NoSQL databases store data in non-tabular formats.'
+            },
+            {
+                topic: 'Data Aggregation',
+                question: 'What does the SQL COUNT() function do?',
+                options: ['A) Adds numbers', 'B) Counts the number of rows', 'C) Sorts data', 'D) Deletes records'],
+                correct: 'B) Counts the number of rows',
+                hint: 'COUNT() returns the number of rows matching criteria.'
+            }
+        ],
+
+        // Module CCC: Web Development & Technologies
+        'CCC': [
+            {
+                topic: 'Web Basics',
+                question: 'What does HTTP stand for?',
+                options: ['A) HyperText Transfer Protocol', 'B) High Transfer Text Protocol', 'C) HyperText Transmission Process', 'D) Home Tool Transfer Protocol'],
+                correct: 'A) HyperText Transfer Protocol',
+                hint: 'HTTP is the foundation of data communication on the Web.'
+            },
+            {
+                topic: 'CSS Styling',
+                question: 'In CSS, which property changes the background color?',
+                options: ['A) color', 'B) bgcolor', 'C) background-color', 'D) bg-color'],
+                correct: 'C) background-color',
+                hint: 'CSS uses hyphenated property names for styling.'
+            },
+            {
+                topic: 'HTML Structure',
+                question: 'What is the purpose of the <head> tag in HTML?',
+                options: ['A) Display main content', 'B) Contain metadata about the document', 'C) Create headers', 'D) Define footer'],
+                correct: 'B) Contain metadata about the document',
+                hint: 'The head section contains non-visible document information.'
+            },
+            {
+                topic: 'HTTP Methods',
+                question: 'Which HTTP method is used to send data to a server?',
+                options: ['A) GET', 'B) POST', 'C) DELETE', 'D) FETCH'],
+                correct: 'B) POST',
+                hint: 'POST is commonly used for form submissions and creating resources.'
+            },
+            {
+                topic: 'JavaScript Basics',
+                question: 'What is the DOM in web development?',
+                options: ['A) Document Object Model', 'B) Data Output Method', 'C) Digital Object Manager', 'D) Database Operation Mode'],
+                correct: 'A) Document Object Model',
+                hint: 'The DOM represents the HTML document as a tree structure.'
+            },
+            {
+                topic: 'Web Security',
+                question: 'What is HTTPS?',
+                options: ['A) HTTP with security/encryption', 'B) High Transfer Protocol System', 'C) HTML Transfer Protocol Secure', 'D) Home Transfer Protocol Service'],
+                correct: 'A) HTTP with security/encryption',
+                hint: 'HTTPS uses SSL/TLS to encrypt data transmission.'
+            },
+            {
+                topic: 'CSS Layout',
+                question: 'What does CSS Flexbox do?',
+                options: ['A) Makes pages flexible in size', 'B) Provides flexible layout model', 'C) Flexes images', 'D) Creates animations'],
+                correct: 'B) Provides flexible layout model',
+                hint: 'Flexbox helps arrange elements in responsive layouts.'
+            },
+            {
+                topic: 'Web Performance',
+                question: 'What is caching in web development?',
+                options: ['A) Storing data temporarily for faster access', 'B) Deleting old files', 'C) Compressing images', 'D) Encrypting data'],
+                correct: 'A) Storing data temporarily for faster access',
+                hint: 'Caching reduces load times by storing frequently used data.'
+            },
+            {
+                topic: 'Responsive Design',
+                question: 'What are media queries used for in CSS?',
+                options: ['A) Playing videos', 'B) Applying styles based on device characteristics', 'C) Loading images', 'D) Creating animations'],
+                correct: 'B) Applying styles based on device characteristics',
+                hint: 'Media queries enable responsive designs for different screens.'
+            },
+            {
+                topic: 'JavaScript Events',
+                question: 'What is an event listener in JavaScript?',
+                options: ['A) A function that waits for events', 'B) A debugging tool', 'C) A variable type', 'D) An error handler'],
+                correct: 'A) A function that waits for events',
+                hint: 'Event listeners respond to user interactions like clicks.'
+            },
+            {
+                topic: 'Web APIs',
+                question: 'What is a RESTful API?',
+                options: ['A) An architectural style for web services', 'B) A programming language', 'C) A database type', 'D) A web browser'],
+                correct: 'A) An architectural style for web services',
+                hint: 'REST uses HTTP methods for creating web services.'
+            },
+            {
+                topic: 'HTML Forms',
+                question: 'What is the purpose of the <form> tag?',
+                options: ['A) To collect user input', 'B) To display images', 'C) To create tables', 'D) To add styles'],
+                correct: 'A) To collect user input',
+                hint: 'Forms gather data from users through input fields.'
+            },
+            {
+                topic: 'Web Storage',
+                question: 'What is localStorage in web browsers?',
+                options: ['A) Client-side storage with no expiration', 'B) Server storage', 'C) Temporary memory', 'D) Cookie replacement'],
+                correct: 'A) Client-side storage with no expiration',
+                hint: 'localStorage persists data even after browser closes.'
+            },
+            {
+                topic: 'CSS Selectors',
+                question: 'What does the CSS selector "#main" target?',
+                options: ['A) An element with id="main"', 'B) A class named main', 'C) All main tags', 'D) The first element'],
+                correct: 'A) An element with id="main"',
+                hint: 'The # symbol selects elements by their ID attribute.'
+            },
+            {
+                topic: 'JavaScript Async',
+                question: 'What is a Promise in JavaScript?',
+                options: ['A) An object representing eventual completion of async operation', 'B) A guarantee of success', 'C) A type of loop', 'D) A variable declaration'],
+                correct: 'A) An object representing eventual completion of async operation',
+                hint: 'Promises handle asynchronous operations with then/catch.'
+            }
+        ],
+
+        // Module DDD: Data Science & Statistics
+        'DDD': [
+            {
+                topic: 'Statistics Basics',
+                question: 'Given mean=50 and standard deviation=10, what percentage falls within one standard deviation?',
+                options: ['A) 50%', 'B) 68%', 'C) 95%', 'D) 99.7%'],
+                correct: 'B) 68%',
+                hint: 'Recall the empirical rule (68-95-99.7 rule) for normal distributions.'
+            },
+            {
+                topic: 'Machine Learning',
+                question: 'In machine learning, what is overfitting?',
+                options: ['A) Model performs well on training but poorly on new data', 'B) Model performs poorly on all data', 'C) Model is too simple', 'D) Model trains too quickly'],
+                correct: 'A) Model performs well on training but poorly on new data',
+                hint: 'Overfitting means learning training data too well, including noise.'
+            },
+            {
+                topic: 'ML Evaluation',
+                question: 'What is a confusion matrix used for?',
+                options: ['A) To confuse the model', 'B) To evaluate classification performance', 'C) To create random predictions', 'D) To sort data'],
+                correct: 'B) To evaluate classification performance',
+                hint: 'Shows true/false positives and true/false negatives.'
+            },
+            {
+                topic: 'Learning Types',
+                question: 'What is the difference between supervised and unsupervised learning?',
+                options: ['A) Supervised uses labeled data', 'B) Supervised is faster', 'C) Unsupervised is more accurate', 'D) No difference'],
+                correct: 'A) Supervised uses labeled data',
+                hint: 'Supervised learning trains on data with known outcomes.'
+            },
+            {
+                topic: 'Data Analysis',
+                question: 'What is the median of a dataset?',
+                options: ['A) The average value', 'B) The middle value when sorted', 'C) The most frequent value', 'D) The range'],
+                correct: 'B) The middle value when sorted',
+                hint: 'Median is the center point of sorted data.'
+            },
+            {
+                topic: 'Probability',
+                question: 'What is the probability of getting heads in a fair coin toss?',
+                options: ['A) 0.25', 'B) 0.5', 'C) 0.75', 'D) 1.0'],
+                correct: 'B) 0.5',
+                hint: 'A fair coin has equal chances for heads and tails.'
+            },
+            {
+                topic: 'Data Visualization',
+                question: 'What type of chart is best for showing trends over time?',
+                options: ['A) Pie chart', 'B) Line chart', 'C) Bar chart', 'D) Scatter plot'],
+                correct: 'B) Line chart',
+                hint: 'Line charts connect data points to show progression.'
+            },
+            {
+                topic: 'Statistical Measures',
+                question: 'What does standard deviation measure?',
+                options: ['A) Average value', 'B) Spread of data from mean', 'C) Most common value', 'D) Total sum'],
+                correct: 'B) Spread of data from mean',
+                hint: 'Standard deviation shows how dispersed data is.'
+            },
+            {
+                topic: 'Correlation',
+                question: 'What does a correlation coefficient of -1 indicate?',
+                options: ['A) Perfect positive correlation', 'B) Perfect negative correlation', 'C) No correlation', 'D) Weak correlation'],
+                correct: 'B) Perfect negative correlation',
+                hint: 'Negative correlation means variables move in opposite directions.'
+            },
+            {
+                topic: 'Hypothesis Testing',
+                question: 'What is a p-value in statistics?',
+                options: ['A) Probability of observing results if null hypothesis is true', 'B) The average', 'C) The median', 'D) The range'],
+                correct: 'A) Probability of observing results if null hypothesis is true',
+                hint: 'P-values help determine statistical significance.'
+            },
+            {
+                topic: 'Data Cleaning',
+                question: 'What is an outlier in data analysis?',
+                options: ['A) Average data point', 'B) A data point significantly different from others', 'C) Missing data', 'D) Duplicate data'],
+                correct: 'B) A data point significantly different from others',
+                hint: 'Outliers are extreme values that deviate from the pattern.'
+            },
+            {
+                topic: 'ML Algorithms',
+                question: 'What is a decision tree?',
+                options: ['A) A tree diagram for decisions', 'B) A machine learning algorithm using tree structure', 'C) A database structure', 'D) A sorting method'],
+                correct: 'B) A machine learning algorithm using tree structure',
+                hint: 'Decision trees make predictions through branching logic.'
+            },
+            {
+                topic: 'Feature Engineering',
+                question: 'What is feature scaling in machine learning?',
+                options: ['A) Normalizing feature ranges', 'B) Adding more features', 'C) Removing features', 'D) Sorting features'],
+                correct: 'A) Normalizing feature ranges',
+                hint: 'Scaling adjusts features to similar ranges for better training.'
+            },
+            {
+                topic: 'Data Sampling',
+                question: 'What is cross-validation?',
+                options: ['A) A technique to assess model performance', 'B) Deleting bad data', 'C) Adding more data', 'D) Encrypting data'],
+                correct: 'A) A technique to assess model performance',
+                hint: 'Cross-validation splits data to test model generalization.'
+            },
+            {
+                topic: 'Neural Networks',
+                question: 'What is a neural network?',
+                options: ['A) A network of computers', 'B) A computing system inspired by biological brains', 'C) An internet protocol', 'D) A database type'],
+                correct: 'B) A computing system inspired by biological brains',
+                hint: 'Neural networks use interconnected nodes like neurons.'
+            }
+        ]
+    };
+
+    // ✅ Get questions for the specific module (with fallback to AAA)
+    const moduleQuestions = questionBanksByModule[moduleCode] || questionBanksByModule['AAA'];
+
+    // ✅ Shuffle and select unique questions for this assessment
+    const shuffledBank = [...moduleQuestions].sort(() => Math.random() - 0.5);
+    const selectedQuestions = shuffledBank.slice(0, totalQuestions);
 
     const questions = [];
 
     // Generate correct answers
     for (let i = 0; i < correctCount; i++) {
+        const q = selectedQuestions[i];
         questions.push({
             number: i + 1,
-            title: `Question ${i + 1}`,
-            topic: topics[Math.floor(Math.random() * topics.length)],
+            title: q.question,
+            topic: q.topic,
             correct: true,
-            userAnswer: 'Option C',
-            correctAnswer: 'Option C',
-            hint: ''
+            userAnswer: q.correct,
+            correctAnswer: q.correct,
+            hint: '',
+            allOptions: q.options
         });
     }
 
     // Generate incorrect answers
     for (let i = correctCount; i < totalQuestions; i++) {
-        const wrongOptions = ['A', 'B', 'D'];
-        const correctOption = 'C';
+        const q = selectedQuestions[i];
+        const wrongAnswer = q.options.filter(opt => opt !== q.correct)[Math.floor(Math.random() * 3)];
+
         questions.push({
             number: i + 1,
-            title: `Question ${i + 1}`,
-            topic: topics[Math.floor(Math.random() * topics.length)],
+            title: q.question,
+            topic: q.topic,
             correct: false,
-            userAnswer: `Option ${wrongOptions[Math.floor(Math.random() * wrongOptions.length)]}`,
-            correctAnswer: `Option ${correctOption}`,
-            hint: 'Review the lecture notes and practice similar problems to improve understanding.'
+            userAnswer: wrongAnswer,
+            correctAnswer: q.correct,
+            hint: q.hint,
+            allOptions: q.options
         });
     }
 
-    // Shuffle questions to mix correct/incorrect
+    // Shuffle to mix correct/incorrect
     questions.sort(() => Math.random() - 0.5);
 
     return {
@@ -2693,64 +3196,6 @@ function renderTopicBreakdownChart(topics, assessment) {
     detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 } */
 
-// ============================================
-// GENERATE QUESTION ANALYSIS (Pass/Fail)
-// ============================================
-function generateQuestionAnalysis(overallScore) {
-    // Generate 10-15 questions based on score
-    const totalQuestions = Math.floor(Math.random() * 6) + 10; // 10-15 questions
-    const correctCount = Math.round((overallScore / 100) * totalQuestions);
-    const incorrectCount = totalQuestions - correctCount;
-
-    const topics = [
-        'Basic Concepts',
-        'Advanced Theory',
-        'Practical Application',
-        'Problem Solving',
-        'Critical Analysis',
-        'Data Interpretation'
-    ];
-
-    const questions = [];
-
-    // Generate correct answers
-    for (let i = 0; i < correctCount; i++) {
-        questions.push({
-            number: i + 1,
-            title: `Question ${i + 1}`,
-            topic: topics[Math.floor(Math.random() * topics.length)],
-            correct: true,
-            userAnswer: 'Option C',
-            correctAnswer: 'Option C',
-            hint: ''
-        });
-    }
-
-    // Generate incorrect answers
-    for (let i = correctCount; i < totalQuestions; i++) {
-        const wrongOptions = ['A', 'B', 'D'];
-        const correctOption = 'C';
-        questions.push({
-            number: i + 1,
-            title: `Question ${i + 1}`,
-            topic: topics[Math.floor(Math.random() * topics.length)],
-            correct: false,
-            userAnswer: `Option ${wrongOptions[Math.floor(Math.random() * wrongOptions.length)]}`,
-            correctAnswer: `Option ${correctOption}`,
-            hint: 'Review the lecture notes and practice similar problems to improve understanding.'
-        });
-    }
-
-    // Shuffle questions to mix correct/incorrect
-    questions.sort(() => Math.random() - 0.5);
-
-    return {
-        total: totalQuestions,
-        correct: correctCount,
-        incorrect: incorrectCount,
-        questions: questions
-    };
-}
 
 // ============================================
 // SHOW COURSE COMPARISON PAGE
@@ -3594,10 +4039,28 @@ function showUrgentActionsDetail() {
         return;
     }
 
-    // ✅ GANTT CHART FIRST, then list
+    // ✅ NEW: TWO-VIEW TOGGLE SYSTEM
     const html = `
-        <!-- SECTION 1: GANTT CHART -->
-        <div class="p-4 bg-light border-bottom">
+        <!-- VIEW TOGGLE BUTTONS -->
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                ${urgentItems.length} Urgent Action${urgentItems.length !== 1 ? 's' : ''}
+            </h5>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary active" id="urgentGanttViewBtn" onclick="toggleUrgentView('gantt')">
+                    <i class="bi bi-bar-chart-line me-2"></i>
+                    Gantt Chart
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="urgentListViewBtn" onclick="toggleUrgentView('list')">
+                    <i class="bi bi-list-task me-2"></i>
+                    Action Items
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 1: GANTT CHART -->
+        <div id="urgentGanttView" class="p-4 bg-light">
             <h5 class="mb-3">
                 <i class="bi bi-calendar-range me-2"></i>
                 📊 Deadline Timeline (Gantt Chart)
@@ -3605,11 +4068,11 @@ function showUrgentActionsDetail() {
             ${renderGanttChart(urgentItems, currentDay)}
         </div>
 
-        <!-- SECTION 2: DETAILED LIST -->
-        <div class="p-4">
+        <!-- VIEW 2: ACTION ITEMS LIST -->
+        <div id="urgentListView" class="p-4" style="display: none;">
             <h5 class="mb-3">
                 <i class="bi bi-list-task me-2"></i>
-                📋 Action Items (${urgentItems.length})
+                📋 Detailed Action Items (${urgentItems.length})
             </h5>
             ${urgentItems.map((item, index) => `
                 <div class="card mb-3 border-${item.color}">
@@ -3667,6 +4130,34 @@ function showUrgentActionsDetail() {
 
     container.innerHTML = html;
     navigateTo('page-urgent-actions');
+}
+
+// ✅ NEW: Toggle function for Urgent Actions views
+function toggleUrgentView(view) {
+    const ganttView = document.getElementById('urgentGanttView');
+    const listView = document.getElementById('urgentListView');
+    const ganttBtn = document.getElementById('urgentGanttViewBtn');
+    const listBtn = document.getElementById('urgentListViewBtn');
+
+    if (view === 'gantt') {
+        ganttView.style.display = 'block';
+        listView.style.display = 'none';
+        ganttBtn.classList.add('active');
+        ganttBtn.classList.remove('btn-outline-primary');
+        ganttBtn.classList.add('btn-primary');
+        listBtn.classList.remove('active');
+        listBtn.classList.add('btn-outline-primary');
+        listBtn.classList.remove('btn-primary');
+    } else {
+        ganttView.style.display = 'none';
+        listView.style.display = 'block';
+        listBtn.classList.add('active');
+        listBtn.classList.remove('btn-outline-primary');
+        listBtn.classList.add('btn-primary');
+        ganttBtn.classList.remove('active');
+        ganttBtn.classList.add('btn-outline-primary');
+        ganttBtn.classList.remove('btn-primary');
+    }
 }
 
 // ============================================
