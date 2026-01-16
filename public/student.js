@@ -3782,20 +3782,20 @@ function showDeadlinePrep(assessment) {
         </div>
 
         <div class="row mb-4">
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <h5 class="mb-3">📚 Topics to Study</h5>
                 <div class="list-group">
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div class="list-group-item d-flex justify-content-between align-items-center" style="padding: 1.5rem; font-size: 1.1rem;">
                         <span>Week ${Math.floor(assessment.date / 7) - 1} Materials</span>
-                        <span class="badge bg-success">Ready</span>
+                        <span class="badge bg-success" style="font-size: 0.95rem; padding: 0.6rem 0.9rem;">Ready</span>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div class="list-group-item d-flex justify-content-between align-items-center" style="padding: 1.5rem; font-size: 1.1rem;">
                         <span>Week ${Math.floor(assessment.date / 7)} Materials</span>
-                        <span class="badge bg-warning">Review Needed</span>
+                        <span class="badge bg-warning" style="font-size: 0.95rem; padding: 0.6rem 0.9rem;">Review Needed</span>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div class="list-group-item d-flex justify-content-between align-items-center" style="padding: 1.5rem; font-size: 1.1rem;">
                         <span>Practice Problems</span>
-                        <span class="badge bg-info">Available</span>
+                        <span class="badge bg-info" style="font-size: 0.95rem; padding: 0.6rem 0.9rem;">Available</span>
                     </div>
                 </div>
             </div>
@@ -3833,7 +3833,7 @@ function showDeadlinePrep(assessment) {
     `;
 
     document.getElementById('deadlinePrepContent').innerHTML = content;
-    updatePrepCalculation(assessment.code_module, currentAvg, moduleScores.length);
+    //updatePrepCalculation(assessment.code_module, currentAvg, moduleScores.length);
     navigateTo('page-deadline-prep');
 }
 
