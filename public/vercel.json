@@ -1,5 +1,27 @@
 {
-    "buildCommand": "npm run build",
-    "outputDirectory": "public",
-    "devCommand": "npm run dev"
+    "version": 2,
+    "builds": [
+        {
+            "src": "api/**/*.js",
+            "use": "@vercel/node"
+        },
+        {
+            "src": "public/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "/api/$1"
+        },
+        {
+            "src": "/(.*\\.(html|css|js|csv|png|jpg|jpeg|gif|svg|ico))",
+            "dest": "/public/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/public/$1"
+        }
+    ]
 }
