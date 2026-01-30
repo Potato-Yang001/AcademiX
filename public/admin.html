@@ -422,39 +422,27 @@
             <h4><i class="bi bi-shield-lock-fill"></i> Admin Portal</h4>
         </div>
         <div class="sidebar-nav">
-            <a href="#overview" class="nav-link active">
+            <a href="#overview" class="nav-link active" onclick="navigateTo('overview'); return false;">
                 <i class="bi bi-speedometer2"></i>
                 <span>Overview</span>
             </a>
-            <a href="#alerts" class="nav-link">
+            <a href="#alerts" class="nav-link" onclick="navigateTo('alerts'); return false;">
                 <i class="bi bi-exclamation-triangle-fill"></i>
                 <span>Critical Alerts</span>
             </a>
-            <a href="#enrolment" class="nav-link">
+            <a href="#enrolment" class="nav-link" onclick="navigateTo('enrolment'); return false;">
                 <i class="bi bi-people-fill"></i>
                 <span>Enrolment Tracking</span>
             </a>
-            <a href="#outcomes" class="nav-link">
+            <a href="#outcomes" class="nav-link" onclick="navigateTo('outcomes'); return false;">
                 <i class="bi bi-trophy-fill"></i>
                 <span>Student Outcomes</span>
             </a>
-            <a href="#performance" class="nav-link">
-                <i class="bi bi-bar-chart-fill"></i>
-                <span>Course Performance</span>
-            </a>
-            <a href="#subjects" class="nav-link">
+            <a href="#" class="nav-link" onclick="navigateToPage('courses'); return false;">
                 <i class="bi bi-book-fill"></i>
-                <span>Subjects Catalog</span>
+                <span>Courses</span>
             </a>
-            <a href="#capacity" class="nav-link">
-                <i class="bi bi-pie-chart-fill"></i>
-                <span>Capacity Planning</span>
-            </a>
-            <a href="#demand" class="nav-link">
-                <i class="bi bi-graph-up"></i>
-                <span>Demand Analysis</span>
-            </a>
-            <a href="#demographics" class="nav-link">
+            <a href="#demographics" class="nav-link" onclick="navigateTo('demographics'); return false;">
                 <i class="bi bi-pie-chart-fill"></i>
                 <span>Demographics</span>
             </a>
