@@ -4077,7 +4077,6 @@ function showUrgentActionsDetail() {
         <!-- VIEW 1: GANTT CHART -->
         <div id="urgentGanttView" class="p-4 bg-light">
             <h5 class="mb-3">
-                <i class="bi bi-calendar-range me-2"></i>
                 📊 Deadline Timeline (Gantt Chart)
             </h5>
             ${renderGanttChart(urgentItems, currentDay)}
