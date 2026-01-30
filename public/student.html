@@ -470,32 +470,32 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="logo">
-            <h4><i class="bi bi-mortarboard-fill"></i> Student Portal</h4>
+            <h4>🎓 Student Portal</h4>
         </div>
         <div class="sidebar-nav">
-            <a href="#overviewSection" class="nav-link active">
+            <a href="#page-main" class="nav-link active" onclick="navigateTo('page-main'); return false;">
                 <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#courseOverview" class="nav-link">
+                <i class="bi bi-book"></i>
+                <span>Course Overview</span>
+            </a>
+            <a href="#overviewSection" class="nav-link">
+                <i class="bi bi-graph-up"></i>
                 <span>Performance Summary</span>
             </a>
-            <a href="#goalTracker" class="nav-link">
-                <i class="bi bi-bullseye"></i>
-                <span>Goals & Deadlines</span>
+            <a href="#" class="nav-link" onclick="showModuleBreakdown(); return false;">
+                <i class="bi bi-list-check"></i>
+                <span>Module Breakdown</span>
             </a>
-            <a href="#progressSection" class="nav-link">
-                <i class="bi bi-graph-up"></i>
-                <span>Academic Progress</span>
+            <a href="#" class="nav-link" onclick="showUrgentActionsDetail(); return false;">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Urgent Actions</span>
             </a>
-            <a href="#engagementSection" class="nav-link">
-                <i class="bi bi-activity"></i>
-                <span>Engagement Stats</span>
-            </a>
-            <a href="#recentUpdates" class="nav-link">
-                <i class="bi bi-bell"></i>
-                <span>Recent Updates</span>
-            </a>
-            <a href="#profileSection" class="nav-link">
-                <i class="bi bi-person-circle"></i>
-                <span>My Profile</span>
+            <a href="#" class="nav-link" onclick="showCourseComparison(); return false;">
+                <i class="bi bi-bar-chart"></i>
+                <span>Course Comparison</span>
             </a>
             <hr style="margin: 1rem 1.5rem; border-color: rgba(255,255,255,0.1);">
             <a href="index.html" class="nav-link text-danger">
