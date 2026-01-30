@@ -922,7 +922,7 @@ function renderGanttChart(deadlineItems, currentDay) {
                                     </small>
                                     <small class="text-muted">
                                         <i class="bi bi-calendar-event me-1"></i>
-                                        Due: Day ${item.date}
+                                        Due: Day ${item.deadline}
                                     </small>
                                 </div>
                             </div>
@@ -944,7 +944,7 @@ function renderGanttChart(deadlineItems, currentDay) {
                                 <!-- Label Inside Bar -->
                                 <div class="d-flex align-items-center justify-content-center h-100" style="position: relative; z-index: 2;">
                                     <span class="badge" style="background: ${barColor}; font-size: 0.9rem; padding: 0.5rem 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-weight: 600;">
-                                        📅 Deadline: Day ${item.date} (${item.daysLeft}d from now)
+                                        📅 Deadline: Day ${item.deadline} (${item.daysLeft}d from now)
                                     </span>
                                 </div>
                             </div>
